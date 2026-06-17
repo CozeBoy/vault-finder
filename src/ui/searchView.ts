@@ -323,7 +323,7 @@ export class SearchView extends ItemView {
         step: '1',
       },
     });
-    if (!(slider instanceof HTMLInputElement)) return;
+    if (!slider.instanceOf(HTMLInputElement)) return;
     slider.value = String(this.plugin.settings.searchMatchThreshold);
 
     slider.addEventListener('input', () => {
@@ -686,10 +686,13 @@ export class SearchView extends ItemView {
         void this.plugin.saveSettings();
       },
       renderMarkdownHtml: async (md) => {
-        const div = document.createElement('div');
+        const doc = window.activeDocument ?? document;
+        const div = doc.createElement('div');
         div.className = 'vault-finder-article-body markdown-rendered';
         await MarkdownRenderer.render(this.app, md, div, '', this);
-        return div.innerHTML;
+        return Array.from(div.childNodes)
+          .map((node) => new XMLSerializer().serializeToString(node))
+          .join('');
       },
     });
   }

@@ -11,6 +11,8 @@ import {
   clampVectorEmbedConcurrency,
   defaultModelForProvider,
   normalizeExtensions,
+  normalizeExcludePaths,
+  parseExcludeExtensionsInput,
   parseCustomEmbeddingModels,
   VECTOR_EMBED_CONCURRENCY_MAX,
   VECTOR_EMBED_CONCURRENCY_MIN,
@@ -55,7 +57,12 @@ export class VaultFinderSettingTab extends PluginSettingTab {
     }, 2000);
   }
 
+  // eslint-disable-next-line obsidianmd/no-deprecated-api -- minAppVersion 1.6.6; getSettingDefinitions requires 1.13+ (docs §2.2, §3.6).
   display(): void {
+    this.renderSettings();
+  }
+
+  private renderSettings(): void {
     this.stopStatusPoll();
     if (syncPromptsToLanguage(this.plugin.settings)) {
       void this.plugin.saveSettings();
@@ -82,7 +89,7 @@ export class VaultFinderSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
             this.plugin.refreshRibbonIcon();
             this.plugin.refreshSearchViews();
-            this.display();
+            this.renderSettings();
           }),
       );
 
@@ -128,24 +135,60 @@ export class VaultFinderSettingTab extends PluginSettingTab {
           }),
       );
 
+    let excludePathsArea: HTMLTextAreaElement | null = null;
     new Setting(containerEl)
       .setName(t.settingsExcludePaths)
       .setDesc(t.settingsExcludePathsDesc)
       .addTextArea((area) => {
+        excludePathsArea = area.inputEl;
         area
           .setValue(s.excludePaths.join('\n'))
           .onChange(async (value) => {
             const prev = { ...this.plugin.settings };
-            this.plugin.settings.excludePaths = value
-              .split('\n')
-              .map((line) => line.trim())
-              .filter(Boolean);
+            this.plugin.settings.excludePaths = normalizeExcludePaths(value.split('\n'));
             await this.plugin.saveSettings();
             if (this.plugin.index.settingsFingerprintChanged(prev)) {
               void this.plugin.rebuildIndex();
             }
           });
-        area.inputEl.rows = 3;
+        area.inputEl.rows = 4;
+      })
+      .addButton((btn) =>
+        btn.setButtonText(t.settingsExcludePathsChoose).onClick(() => {
+          new FolderPickerModal(this.app, makeFolderPickerLabels(t), (path) => {
+            const prev = { ...this.plugin.settings };
+            const paths = normalizeExcludePaths([
+              ...this.plugin.settings.excludePaths,
+              path,
+            ]);
+            this.plugin.settings.excludePaths = paths;
+            if (excludePathsArea) {
+              excludePathsArea.value = paths.join('\n');
+            }
+            void this.plugin.saveSettings().then(() => {
+              if (this.plugin.index.settingsFingerprintChanged(prev)) {
+                void this.plugin.rebuildIndex();
+              }
+            });
+          }).open();
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName(t.settingsExcludeExtensions)
+      .setDesc(t.settingsExcludeExtensionsDesc)
+      .addTextArea((area) => {
+        area
+          .setValue(s.excludeExtensions.join('\n'))
+          .onChange(async (value) => {
+            const prev = { ...this.plugin.settings };
+            this.plugin.settings.excludeExtensions = parseExcludeExtensionsInput(value);
+            await this.plugin.saveSettings();
+            if (this.plugin.index.settingsFingerprintChanged(prev)) {
+              void this.plugin.rebuildIndex();
+            }
+          });
+        area.inputEl.rows = 4;
       });
 
     new Setting(containerEl)
@@ -184,14 +227,14 @@ export class VaultFinderSettingTab extends PluginSettingTab {
           const value = text.getValue().trim();
           if (value === this.plugin.settings.keywordCacheFolder) return;
           this.plugin.settings.keywordCacheFolder = value;
-          void this.plugin.saveSettings().then(() => this.display());
+          void this.plugin.saveSettings().then(() => this.renderSettings());
         });
       })
       .addButton((btn) =>
         btn.setButtonText(t.settingsKeywordCacheFolderChoose).onClick(() => {
           new FolderPickerModal(this.app, makeFolderPickerLabels(t), (path) => {
             this.plugin.settings.keywordCacheFolder = path;
-            void this.plugin.saveSettings().then(() => this.display());
+            void this.plugin.saveSettings().then(() => this.renderSettings());
           }).open();
         }),
       )
@@ -199,7 +242,7 @@ export class VaultFinderSettingTab extends PluginSettingTab {
         btn.setButtonText(t.settingsKeywordCacheFolderReset).onClick(async () => {
           this.plugin.settings.keywordCacheFolder = DEFAULT_SETTINGS.keywordCacheFolder;
           await this.plugin.saveSettings();
-          this.display();
+          this.renderSettings();
         }),
       )
       .addButton((btn) =>
@@ -245,14 +288,14 @@ export class VaultFinderSettingTab extends PluginSettingTab {
           const value = text.getValue().trim();
           if (value === this.plugin.settings.vectorCacheFolder) return;
           this.plugin.settings.vectorCacheFolder = value;
-          void this.plugin.saveSettings().then(() => this.display());
+          void this.plugin.saveSettings().then(() => this.renderSettings());
         });
       })
       .addButton((btn) =>
         btn.setButtonText(t.settingsVectorCacheFolderChoose).onClick(() => {
           new FolderPickerModal(this.app, makeFolderPickerLabels(t), (path) => {
             this.plugin.settings.vectorCacheFolder = path;
-            void this.plugin.saveSettings().then(() => this.display());
+            void this.plugin.saveSettings().then(() => this.renderSettings());
           }).open();
         }),
       )
@@ -260,7 +303,7 @@ export class VaultFinderSettingTab extends PluginSettingTab {
         btn.setButtonText(t.settingsVectorCacheFolderReset).onClick(async () => {
           this.plugin.settings.vectorCacheFolder = DEFAULT_SETTINGS.vectorCacheFolder;
           await this.plugin.saveSettings();
-          this.display();
+          this.renderSettings();
         }),
       )
       .addButton((btn) =>
@@ -321,7 +364,7 @@ export class VaultFinderSettingTab extends PluginSettingTab {
               this.plugin.settings.embeddingModel = models[0] ?? DEFAULT_SETTINGS.embeddingModel;
             }
             await this.plugin.saveSettings();
-            this.display();
+            this.renderSettings();
           });
         area.inputEl.rows = 4;
         area.inputEl.addClass('vault-finder-prompt-area');
@@ -424,7 +467,7 @@ export class VaultFinderSettingTab extends PluginSettingTab {
               this.plugin.settings.aiModel = models[0] ?? defaultModelForProvider(provider);
             }
             await this.plugin.saveSettings();
-            this.display();
+            this.renderSettings();
           }),
       );
 
@@ -460,7 +503,7 @@ export class VaultFinderSettingTab extends PluginSettingTab {
                 this.plugin.settings.aiModel = models[0] ?? this.plugin.settings.aiModel;
               }
               await this.plugin.saveSettings();
-              this.display();
+              this.renderSettings();
             });
           area.inputEl.rows = 4;
           area.inputEl.addClass('vault-finder-prompt-area');
@@ -644,7 +687,7 @@ export class VaultFinderSettingTab extends PluginSettingTab {
       .addButton((btn) =>
         btn.setButtonText(t.settingsAiResetPrompt).onClick(async () => {
           await onSave(defaultValue);
-          this.display();
+          this.renderSettings();
         }),
       );
 

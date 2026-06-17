@@ -69,7 +69,11 @@ export const zhCN: I18nStrings = {
   settingsExtensions: '可索引文件后缀',
   settingsExtensionsDesc: '逗号分隔，例如 md, txt, json, ini。',
   settingsExcludePaths: '排除路径',
-  settingsExcludePathsDesc: '每行一个路径前缀，匹配的文件不索引。',
+  settingsExcludePathsDesc: '每行一个路径前缀，匹配的文件不索引。可手动输入，也可通过按钮选择文件夹添加。',
+  settingsExcludePathsChoose: '选择文件夹',
+  settingsExcludeExtensions: '排除文件后缀',
+  settingsExcludeExtensionsDesc:
+    '每行一个后缀（不含点），也可用逗号分隔。匹配的后缀不索引，默认排除常见图片、音视频与压缩包。',
   settingsMaxFileSize: '单文件大小上限 (MB)',
   settingsMaxFileSizeDesc: '超过此大小的文件不索引。',
   settingsKeywordCacheFolder: '关键词索引缓存文件夹',

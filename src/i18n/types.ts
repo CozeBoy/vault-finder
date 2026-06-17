@@ -67,6 +67,9 @@ export interface I18nStrings {
   settingsExtensionsDesc: string;
   settingsExcludePaths: string;
   settingsExcludePathsDesc: string;
+  settingsExcludePathsChoose: string;
+  settingsExcludeExtensions: string;
+  settingsExcludeExtensionsDesc: string;
   settingsMaxFileSize: string;
   settingsMaxFileSizeDesc: string;
   settingsKeywordCacheFolder: string;

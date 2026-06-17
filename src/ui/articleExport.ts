@@ -3,7 +3,6 @@ import * as os from 'os';
 import * as path from 'path';
 import { Notice, type App } from 'obsidian';
 import { writeExportToVault } from './articleSave';
-import { normalizeSaveFolderPath } from '../settings';
 import { getElectronRemote, type ElectronRemoteBridge } from '../utils/electronDesktop';
 import { expandSourcePathsInHtml, expandSourcePathsInMarkdown, vaultPathToFullPath, type ExportLinkMode } from '../utils/vaultPath';
 
@@ -233,29 +232,6 @@ function writeExportToAbsolutePath(filePath: string, payload: ExportPayload): vo
     return;
   }
   fs.writeFileSync(filePath, Buffer.from(payload));
-}
-
-async function resolveUniqueVaultExportPath(
-  app: App,
-  folderPath: string,
-  basename: string,
-  extension: string,
-): Promise<string | null> {
-  const folder = normalizeSaveFolderPath(folderPath);
-  let vaultPath = folder ? `${folder}/${basename}.${extension}` : `${basename}.${extension}`;
-
-  try {
-    let suffix = 1;
-    while (await app.vault.adapter.exists(vaultPath)) {
-      vaultPath = folder
-        ? `${folder}/${basename}-${suffix}.${extension}`
-        : `${basename}-${suffix}.${extension}`;
-      suffix++;
-    }
-    return vaultPath;
-  } catch {
-    return null;
-  }
 }
 
 async function exportViaVault(

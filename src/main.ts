@@ -15,6 +15,8 @@ import {
   isAiActive,
   isPartialSettings,
   normalizeExtensions,
+  normalizeExcludePaths,
+  normalizeExcludeExtensions,
   normalizeArticleSaveFolderHistory,
   syncPromptsToLanguage,
   type VaultFinderSettings,
@@ -271,6 +273,10 @@ export default class VaultFinderPlugin extends Plugin {
       ...partial,
       indexableExtensions: normalizeExtensions(
         partial.indexableExtensions ?? DEFAULT_SETTINGS.indexableExtensions,
+      ),
+      excludePaths: normalizeExcludePaths(partial.excludePaths ?? DEFAULT_SETTINGS.excludePaths),
+      excludeExtensions: normalizeExcludeExtensions(
+        partial.excludeExtensions ?? DEFAULT_SETTINGS.excludeExtensions,
       ),
       aiCustomModels: normalizeCustomModels(partial.aiCustomModels ?? DEFAULT_SETTINGS.aiCustomModels),
       vectorCustomEmbeddingModels:

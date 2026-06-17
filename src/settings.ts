@@ -8,6 +8,8 @@ export interface VaultFinderSettings {
   showRibbonIcon: boolean;
   indexableExtensions: string[];
   excludePaths: string[];
+  /** Lowercase extensions without dot; files with these extensions are never indexed. */
+  excludeExtensions: string[];
   maxFileSizeBytes: number;
   searchDebounceMs: number;
   maxResults: number;
@@ -205,11 +207,44 @@ export const GEMINI_MODELS = [
   'gemini-3-flash-preview',
 ] as const;
 
+export const DEFAULT_EXCLUDE_EXTENSIONS = [
+  'png',
+  'jpg',
+  'jpeg',
+  'gif',
+  'webp',
+  'bmp',
+  'svg',
+  'ico',
+  'mp4',
+  'avi',
+  'mov',
+  'mkv',
+  'webm',
+  'wmv',
+  'flv',
+  'm4v',
+  'mp3',
+  'wav',
+  'flac',
+  'aac',
+  'ogg',
+  'm4a',
+  'wma',
+  'zip',
+  'rar',
+  '7z',
+  'gz',
+  'tar',
+  'bz2',
+] as const;
+
 export const DEFAULT_SETTINGS: VaultFinderSettings = {
   language: 'auto',
   showRibbonIcon: true,
   indexableExtensions: ['md', 'txt', 'json', 'ini'],
   excludePaths: [],
+  excludeExtensions: [...DEFAULT_EXCLUDE_EXTENSIONS],
   maxFileSizeBytes: 10 * 1024 * 1024,
   searchDebounceMs: 200,
   maxResults: 50,
@@ -272,6 +307,38 @@ export function normalizeExtensions(extensions: string[]): string[] {
     result.push(normalized);
   }
   return result.length > 0 ? result : [...DEFAULT_SETTINGS.indexableExtensions];
+}
+
+export function normalizeExcludePaths(paths: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of paths) {
+    const normalized = normalizeSaveFolderPath(raw);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
+}
+
+export function normalizeExcludeExtensions(extensions: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of extensions) {
+    const parts = raw.includes(',') ? raw.split(/[,，\s]+/) : [raw];
+    for (const ext of parts) {
+      const normalized = ext.trim().toLowerCase().replace(/^\./, '');
+      if (!normalized || seen.has(normalized)) continue;
+      if (!/^[a-z0-9]+$/.test(normalized)) continue;
+      seen.add(normalized);
+      result.push(normalized);
+    }
+  }
+  return result;
+}
+
+export function parseExcludeExtensionsInput(text: string): string[] {
+  return normalizeExcludeExtensions(text.split(/[\n,，\s]+/));
 }
 
 export function normalizeSaveFolderPath(path: string): string {

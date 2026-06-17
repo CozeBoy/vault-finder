@@ -54,22 +54,20 @@ export function resolveEmbeddingsUrl(baseUrl: string): string {
   return `${trimmed}/v1/embeddings`;
 }
 
+function readEmbeddingIndex(item: unknown): number {
+  if (typeof item !== 'object' || item === null || !('index' in item)) return 0;
+  const index = (item as { index?: unknown }).index;
+  return typeof index === 'number' ? index : 0;
+}
+
 function extractEmbeddings(json: unknown): number[][] {
   if (typeof json !== 'object' || json === null) return [];
   const data = (json as { data?: unknown }).data;
   if (!Array.isArray(data)) return [];
 
-  const sorted = [...data].sort((a, b) => {
-    const ai =
-      typeof a === 'object' && a !== null && 'index' in a && typeof a.index === 'number'
-        ? a.index
-        : 0;
-    const bi =
-      typeof b === 'object' && b !== null && 'index' in b && typeof b.index === 'number'
-        ? b.index
-        : 0;
-    return ai - bi;
-  });
+  const sorted = [...data].sort(
+    (a, b) => readEmbeddingIndex(a) - readEmbeddingIndex(b),
+  );
 
   return sorted.map((item) => {
     const embedding = (item as { embedding?: unknown }).embedding;

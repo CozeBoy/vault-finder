@@ -69,7 +69,12 @@ export const en: I18nStrings = {
   settingsExtensions: 'Indexable file extensions',
   settingsExtensionsDesc: 'Comma-separated list, e.g. md, txt, json, ini.',
   settingsExcludePaths: 'Exclude paths',
-  settingsExcludePathsDesc: 'One path prefix per line. Matching files are skipped.',
+  settingsExcludePathsDesc:
+    'One path prefix per line. Matching files are skipped. Type manually or use the button to pick folders.',
+  settingsExcludePathsChoose: 'Choose folder',
+  settingsExcludeExtensions: 'Excluded file extensions',
+  settingsExcludeExtensionsDesc:
+    'One extension per line (no dot), or comma-separated. Matching files are skipped. Defaults exclude common images, audio/video, and archives.',
   settingsMaxFileSize: 'Max file size (MB)',
   settingsMaxFileSizeDesc: 'Files larger than this are not indexed.',
   settingsKeywordCacheFolder: 'Keyword index cache folder',

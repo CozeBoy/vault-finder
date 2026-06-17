@@ -281,7 +281,9 @@ export class VaultIndex {
       JSON.stringify(prev.indexableExtensions) !==
         JSON.stringify(this.settings.indexableExtensions) ||
       prev.maxFileSizeBytes !== this.settings.maxFileSizeBytes ||
-      JSON.stringify(prev.excludePaths) !== JSON.stringify(this.settings.excludePaths)
+      JSON.stringify(prev.excludePaths) !== JSON.stringify(this.settings.excludePaths) ||
+      JSON.stringify(prev.excludeExtensions) !==
+        JSON.stringify(this.settings.excludeExtensions)
     );
   }
 
@@ -741,6 +743,7 @@ export class VaultIndex {
   private shouldIndexFile(file: TFile): boolean {
     const ext = file.extension.toLowerCase();
     if (!this.settings.indexableExtensions.includes(ext)) return false;
+    if (this.settings.excludeExtensions.includes(ext)) return false;
     if (file.stat.size > this.settings.maxFileSizeBytes) return false;
     if (file.path.startsWith(`${this.app.vault.configDir}/`)) return false;
     for (const prefix of this.settings.excludePaths) {
@@ -755,6 +758,7 @@ export class VaultIndex {
       extensions: this.settings.indexableExtensions,
       maxFileSize: this.settings.maxFileSizeBytes,
       exclude: this.settings.excludePaths,
+      excludeExtensions: this.settings.excludeExtensions,
     });
   }
 

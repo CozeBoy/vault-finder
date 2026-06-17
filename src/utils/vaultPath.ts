@@ -184,6 +184,25 @@ export function expandSourcePathsInMarkdown(
   return result;
 }
 
+function getActiveDocument(): Document {
+  return window.activeDocument ?? document;
+}
+
+function htmlToElementContainer(html: string): HTMLElement {
+  const parsed = new DOMParser().parseFromString(html, 'text/html');
+  const container = getActiveDocument().createElement('div');
+  for (const child of Array.from(parsed.body.childNodes)) {
+    container.appendChild(child.cloneNode(true));
+  }
+  return container;
+}
+
+function serializeElementChildren(container: HTMLElement): string {
+  return Array.from(container.childNodes)
+    .map((node) => new XMLSerializer().serializeToString(node))
+    .join('');
+}
+
 function parseObsidianFileFromHref(href: string): string | null {
   try {
     const url = new URL(href);
@@ -203,10 +222,8 @@ export function expandSourcePathsInHtml(
 ): string {
   if (!html.trim()) return html;
 
-  const template = document.createElement('template');
-  template.innerHTML = html;
-
-  const anchors = Array.from(template.content.querySelectorAll('a'));
+  const container = htmlToElementContainer(html);
+  const anchors = Array.from(container.querySelectorAll('a'));
   for (const anchor of anchors) {
     const dataHref = anchor.getAttribute('data-href') ?? '';
     const href = anchor.getAttribute('href') ?? '';
@@ -247,7 +264,7 @@ export function expandSourcePathsInHtml(
     anchor.classList.remove('internal-link');
   }
 
-  return template.innerHTML;
+  return serializeElementChildren(container);
 }
 
 /** Verify export targets exist on disk (desktop vaults). */
