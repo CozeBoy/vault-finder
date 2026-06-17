@@ -15,6 +15,7 @@ import {
   isAiActive,
   isPartialSettings,
   normalizeExtensions,
+  normalizeArticleSaveFolderHistory,
   syncPromptsToLanguage,
   type VaultFinderSettings,
 } from './settings';
@@ -283,6 +284,9 @@ export default class VaultFinderPlugin extends Plugin {
       showWeakMatchResults: partial.showWeakMatchResults ?? DEFAULT_SETTINGS.showWeakMatchResults,
       vectorEmbedConcurrency:
         partial.vectorEmbedConcurrency ?? DEFAULT_SETTINGS.vectorEmbedConcurrency,
+      articleSaveFolderHistory: normalizeArticleSaveFolderHistory(
+        partial.articleSaveFolderHistory ?? DEFAULT_SETTINGS.articleSaveFolderHistory,
+      ),
     };
   }
 

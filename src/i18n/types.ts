@@ -38,6 +38,12 @@ export interface I18nStrings {
   viewWeakMatchHits: string;
   viewExactMatch: string;
   viewSaveArticle: string;
+  viewSaveArticlePickFolder: string;
+  viewCopyArticle: string;
+  viewExportMarkdown: string;
+  viewExportHtml: string;
+  viewExportPdf: string;
+  viewExportImage: string;
   viewArticleSaveHint: string;
   viewArticleHeading: string;
   viewSourceHits: string;
@@ -165,5 +171,9 @@ export interface I18nStrings {
   noticeLegacyCacheCleaned: string;
   noticeArticleSaved: (path: string) => string;
   noticeArticleSaveFailed: string;
+  noticeArticleCopied: string;
+  noticeArticleCopyFailed: string;
+  noticeArticleExported: (path: string) => string;
+  noticeArticleExportFailed: string;
   mb: string;
 }

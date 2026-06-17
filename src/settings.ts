@@ -44,10 +44,13 @@ export interface VaultFinderSettings {
   vectorCacheFolder: string;
   /** Vault-relative folder path; empty uses plugin-dir/keyword-cache */
   keywordCacheFolder: string;
+  /** Recently used folders when saving search summary articles */
+  articleSaveFolderHistory: string[];
 }
 
 export const VECTOR_EMBED_CONCURRENCY_MIN = 1;
 export const VECTOR_EMBED_CONCURRENCY_MAX = 32;
+export const ARTICLE_SAVE_FOLDER_HISTORY_MAX = 10;
 
 export const EMBEDDING_MODELS = [
   'text-embedding-3-small',
@@ -243,6 +246,7 @@ export const DEFAULT_SETTINGS: VaultFinderSettings = {
   vectorEmbedConcurrency: 10,
   vectorCacheFolder: '',
   keywordCacheFolder: '',
+  articleSaveFolderHistory: [],
 };
 
 export function clampVectorEmbedConcurrency(value: number): number {
@@ -268,6 +272,31 @@ export function normalizeExtensions(extensions: string[]): string[] {
     result.push(normalized);
   }
   return result.length > 0 ? result : [...DEFAULT_SETTINGS.indexableExtensions];
+}
+
+export function normalizeSaveFolderPath(path: string): string {
+  return path.trim().replace(/\\/g, '/').replace(/\/+$/, '');
+}
+
+export function normalizeArticleSaveFolderHistory(paths: unknown): string[] {
+  if (!Array.isArray(paths)) return [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const entry of paths) {
+    if (typeof entry !== 'string') continue;
+    const normalized = normalizeSaveFolderPath(entry);
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
+    if (result.length >= ARTICLE_SAVE_FOLDER_HISTORY_MAX) break;
+  }
+  return result;
+}
+
+export function rememberArticleSaveFolder(history: string[], folderPath: string): string[] {
+  const normalized = normalizeSaveFolderPath(folderPath);
+  const filtered = history.filter((p) => normalizeSaveFolderPath(p) !== normalized);
+  return [normalized, ...filtered].slice(0, ARTICLE_SAVE_FOLDER_HISTORY_MAX);
 }
 
 export function modelsForProvider(provider: AiProvider): readonly string[] {

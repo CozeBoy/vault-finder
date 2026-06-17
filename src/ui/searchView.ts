@@ -1,4 +1,4 @@
-import { ItemView, MarkdownRenderer, Menu, setIcon, WorkspaceLeaf } from 'obsidian';
+import { ItemView, MarkdownRenderer, Menu, Notice, setIcon, WorkspaceLeaf } from 'obsidian';
 import { allModelsForProvider } from '../ai/models';
 import type VaultFinderPlugin from '../main';
 import { clampMatchThreshold } from '../index/matchScore';
@@ -10,6 +10,9 @@ import { ScopePicker, listVaultFolders } from './scopePicker';
 import { attachInternalLinkHandler, openVaultLink } from './vaultLink';
 import { FolderPickerModal, makeFolderPickerLabels } from './folderPickerModal';
 import { buildArticleFilename, saveMarkdownToFolder } from './articleSave';
+import { exportArticleToDisk, type ArticleExportFormat } from './articleExport';
+import type { I18nStrings } from '../i18n';
+import { rememberArticleSaveFolder } from '../settings';
 
 export const VAULT_FINDER_VIEW_TYPE = 'vault-finder-search';
 
@@ -154,6 +157,7 @@ export class SearchView extends ItemView {
 
     this.tabCurrentBtn.addEventListener('click', () => this.switchTab('current'));
     this.tabHistoryBtn.addEventListener('click', () => this.switchTab('history'));
+    this.setupArticleSaveContextMenus();
     this.updateViewHeaderTitle();
   }
 
@@ -375,7 +379,6 @@ export class SearchView extends ItemView {
     if (!markdown?.trim()) return;
 
     targetArticleEl.setAttr('title', this.plugin.t().viewArticleSaveHint);
-    this.attachArticleContextMenu(targetArticleEl, () => markdown);
 
     const body = targetArticleEl.createEl('div', {
       cls: 'vault-finder-article-body markdown-rendered',
@@ -553,7 +556,6 @@ export class SearchView extends ItemView {
   private async renderArticleInto(host: HTMLElement, markdown: string): Promise<void> {
     host.empty();
     host.setAttr('title', this.plugin.t().viewArticleSaveHint);
-    this.attachArticleContextMenu(host, () => markdown);
     const body = host.createEl('div', { cls: 'vault-finder-article-body markdown-rendered' });
     await MarkdownRenderer.render(this.app, markdown, body, '', this);
     attachInternalLinkHandler(body, this.app, (el, type, handler) => {
@@ -562,35 +564,183 @@ export class SearchView extends ItemView {
     this.renderResults();
   }
 
-  private attachArticleContextMenu(host: HTMLElement, getMarkdown: () => string): void {
-    this.registerDomEvent(host, 'contextmenu', (evt) => {
-      const markdown = getMarkdown().trim();
-      if (!markdown) return;
-      evt.preventDefault();
-      const t = this.plugin.t();
-      const menu = new Menu();
+  private setupArticleSaveContextMenus(): void {
+    this.registerDomEvent(this.articleEl, 'contextmenu', (evt) => {
+      if (this.activeTab !== 'current') return;
+      if (!this.isArticleContextEvent(evt)) return;
+      this.showArticleSaveMenu(evt, () => this.controller.article);
+    });
+
+    this.registerDomEvent(this.historyDetailEl, 'contextmenu', (evt) => {
+      if (this.activeTab !== 'history' || this.historyView !== 'detail') return;
+      if (!this.isArticleContextEvent(evt)) return;
+      this.showArticleSaveMenu(evt, () => this.viewingHistoryEntry?.article ?? this.controller.article);
+    });
+  }
+
+  private isArticleContextEvent(evt: MouseEvent): boolean {
+    const target = evt.target;
+    if (!(target instanceof HTMLElement)) return false;
+    return target.closest('.vault-finder-article-body') !== null;
+  }
+
+  private showArticleSaveMenu(evt: MouseEvent, getArticle: () => string | null | undefined): void {
+    const markdown = getArticle()?.trim() ?? '';
+    if (!markdown) return;
+    evt.preventDefault();
+    const t = this.plugin.t();
+    const menu = new Menu();
+
+    menu.addItem((item) => {
+      item.setIcon('copy').setTitle(t.viewCopyArticle).onClick(() => {
+        void this.copyArticleToClipboard(getArticle, t);
+      });
+    });
+
+    const exportItems: { format: ArticleExportFormat; icon: string; label: string }[] = [
+      { format: 'md', icon: 'file-text', label: t.viewExportMarkdown },
+      { format: 'html', icon: 'globe', label: t.viewExportHtml },
+      { format: 'pdf', icon: 'file-output', label: t.viewExportPdf },
+      { format: 'png', icon: 'image', label: t.viewExportImage },
+    ];
+    for (const { format, icon, label } of exportItems) {
       menu.addItem((item) => {
-        item.setTitle(t.viewSaveArticle).onClick(() => {
-          new FolderPickerModal(this.app, makeFolderPickerLabels(t), (folderPath) => {
-            const query =
-              this.activeTab === 'history' && this.viewingHistoryEntry
-                ? this.viewingHistoryEntry.query
-                : this.inputEl.value.trim();
-            void saveMarkdownToFolder(
-              this.app,
-              folderPath,
-              buildArticleFilename(query || 'search'),
-              markdown,
-              {
-                saved: t.noticeArticleSaved,
-                failed: t.noticeArticleSaveFailed,
-              },
-            );
-          }).open();
+        item.setIcon(icon).setTitle(label).onClick(() => {
+          void this.exportArticle(format, getArticle, label, t);
         });
       });
-      menu.showAtMouseEvent(evt);
+    }
+
+    menu.addSeparator();
+
+    const recent = this.plugin.settings.articleSaveFolderHistory;
+
+    for (const folderPath of recent) {
+      menu.addItem((item) => {
+        item
+          .setIcon('folder')
+          .setTitle(this.formatSaveFolderMenuLabel(folderPath, t))
+          .onClick(() => {
+            void this.saveArticleToFolder(folderPath, getArticle, t);
+          });
+      });
+    }
+
+    if (recent.length > 0) {
+      menu.addSeparator();
+    }
+
+    menu.addItem((item) => {
+      item.setIcon('folder-plus').setTitle(t.viewSaveArticlePickFolder).onClick(() => {
+        new FolderPickerModal(this.app, makeFolderPickerLabels(t), (folderPath) => {
+          void this.saveArticleToFolder(folderPath, getArticle, t);
+        }).open();
+      });
     });
+    menu.showAtMouseEvent(evt);
+  }
+
+  private formatSaveFolderMenuLabel(folderPath: string, t: I18nStrings): string {
+    return folderPath ? folderPath : t.folderPickerRoot;
+  }
+
+  private getArticleBodyEl(): HTMLElement | null {
+    if (this.activeTab === 'history' && this.historyView === 'detail') {
+      return this.historyDetailEl.querySelector('.vault-finder-article-body');
+    }
+    return this.articleEl.querySelector('.vault-finder-article-body');
+  }
+
+  private async exportArticle(
+    format: ArticleExportFormat,
+    getArticle: () => string | null | undefined,
+    dialogTitle: string,
+    t: I18nStrings,
+  ): Promise<void> {
+    const markdown = getArticle()?.trim() ?? '';
+    if (!markdown) return;
+    const basename = buildArticleFilename(this.saveQueryForArticleSave() || 'search');
+    const bodyHtml = this.getArticleBodyEl()?.innerHTML ?? '';
+    await exportArticleToDisk({
+      app: this.app,
+      format,
+      markdown,
+      bodyHtml,
+      basename,
+      dialogTitle,
+      notices: {
+        exported: t.noticeArticleExported,
+        failed: t.noticeArticleExportFailed,
+      },
+      pickVaultFolder: () =>
+        new Promise((resolve) => {
+          new FolderPickerModal(this.app, makeFolderPickerLabels(t), (folderPath) => {
+            resolve(folderPath);
+          }).open();
+        }),
+      onVaultFolderUsed: (folder) => {
+        this.plugin.settings.articleSaveFolderHistory = rememberArticleSaveFolder(
+          this.plugin.settings.articleSaveFolderHistory,
+          folder,
+        );
+        void this.plugin.saveSettings();
+      },
+      renderMarkdownHtml: async (md) => {
+        const div = document.createElement('div');
+        div.className = 'vault-finder-article-body markdown-rendered';
+        await MarkdownRenderer.render(this.app, md, div, '', this);
+        return div.innerHTML;
+      },
+    });
+  }
+
+  private async copyArticleToClipboard(
+    getArticle: () => string | null | undefined,
+    t: I18nStrings,
+  ): Promise<void> {
+    const markdown = getArticle()?.trim() ?? '';
+    if (!markdown) return;
+    try {
+      await navigator.clipboard.writeText(markdown);
+      new Notice(t.noticeArticleCopied);
+    } catch {
+      new Notice(t.noticeArticleCopyFailed);
+    }
+  }
+
+  private saveQueryForArticleSave(): string {
+    if (this.activeTab === 'history' && this.viewingHistoryEntry) {
+      return this.viewingHistoryEntry.query;
+    }
+    return this.inputEl.value.trim();
+  }
+
+  private async saveArticleToFolder(
+    folderPath: string,
+    getArticle: () => string | null | undefined,
+    t: I18nStrings,
+  ): Promise<void> {
+    const latestMarkdown = getArticle()?.trim() ?? '';
+    if (!latestMarkdown) return;
+
+    const savedPath = await saveMarkdownToFolder(
+      this.app,
+      folderPath,
+      buildArticleFilename(this.saveQueryForArticleSave() || 'search'),
+      latestMarkdown,
+      {
+        saved: t.noticeArticleSaved,
+        failed: t.noticeArticleSaveFailed,
+      },
+    );
+
+    if (savedPath === null) return;
+
+    this.plugin.settings.articleSaveFolderHistory = rememberArticleSaveFolder(
+      this.plugin.settings.articleSaveFolderHistory,
+      folderPath,
+    );
+    await this.plugin.saveSettings();
   }
 
   private updateStatus(): void {
