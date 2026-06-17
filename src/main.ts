@@ -18,6 +18,7 @@ import {
   normalizeExcludePaths,
   normalizeExcludeExtensions,
   normalizeArticleSaveFolderHistory,
+  normalizeArticleOptimizeShortcuts,
   syncPromptsToLanguage,
   type VaultFinderSettings,
 } from './settings';
@@ -292,6 +293,9 @@ export default class VaultFinderPlugin extends Plugin {
         partial.vectorEmbedConcurrency ?? DEFAULT_SETTINGS.vectorEmbedConcurrency,
       articleSaveFolderHistory: normalizeArticleSaveFolderHistory(
         partial.articleSaveFolderHistory ?? DEFAULT_SETTINGS.articleSaveFolderHistory,
+      ),
+      articleOptimizeShortcuts: normalizeArticleOptimizeShortcuts(
+        partial.articleOptimizeShortcuts ?? DEFAULT_SETTINGS.articleOptimizeShortcuts,
       ),
     };
   }

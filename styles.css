@@ -74,6 +74,99 @@
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04);
 }
 
+.vault-finder-footer-chat-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+}
+
+.vault-finder-footer-chat-tab {
+  flex: 1;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.vault-finder-footer-chat-tab:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+.vault-finder-footer-chat-tab.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.vault-finder-footer-chat-pane {
+  display: none;
+}
+
+.vault-finder-footer-chat-pane.is-active {
+  display: block;
+}
+
+.vault-finder-optimize-form .vault-finder-optimize-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: end;
+}
+
+.vault-finder-optimize-shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vault-finder-optimize-shortcut-select {
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+  box-sizing: border-box;
+}
+
+.vault-finder-optimize-shortcut-manage {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  box-sizing: border-box;
+}
+
+.vault-finder-optimize-shortcut-modal .vault-finder-optimize-shortcut-card {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+
+.vault-finder-optimize-shortcut-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.vault-finder-optimize-shortcut-add {
+  margin-right: auto;
+}
+
+.vault-finder-optimize-submit.is-busy {
+  opacity: 0.7;
+}
+
 .vault-finder-footer-controls {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -81,6 +174,7 @@
   margin-bottom: 10px;
   width: 100%;
   min-width: 0;
+  align-items: end;
 }
 
 .vault-finder-control {
@@ -138,6 +232,8 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  min-height: 32px;
+  box-sizing: border-box;
 }
 
 .vault-finder-input-wrap {
@@ -229,8 +325,276 @@
   );
   border: 1px solid var(--background-modifier-border);
   box-shadow: var(--shadow-s);
-  cursor: context-menu;
+  position: relative;
+  overflow: visible;
 }
+
+.vault-finder-article-version-layer {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  column-gap: 4px;
+  align-items: stretch;
+}
+
+.vault-finder-version-rail {
+  position: relative;
+  min-height: 100%;
+}
+
+.vault-finder-version-rail .vault-finder-version-nav {
+  position: sticky;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: var(--shadow-s);
+}
+
+.vault-finder-article-version-content {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.vault-finder-version-rail-prev {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.vault-finder-version-rail-next {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.vault-finder-article-version-layer:not(.has-multiple-versions) .vault-finder-version-nav,
+.vault-finder-article-version-layer:not(.has-multiple-versions) .vault-finder-article-version-label {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.vault-finder-article-version-label {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+  min-height: 16px;
+}
+
+.vault-finder-version-nav.is-disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.vault-finder-article-inner {
+  position: relative;
+}
+
+.vault-finder-article-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.vault-finder-article-toolbar-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.vault-finder-article-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.vault-finder-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.vault-finder-icon-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.vault-finder-icon-btn-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vault-finder-article-main {
+  min-height: 24px;
+}
+
+.vault-finder-article-editor {
+  width: 100%;
+  min-height: 160px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: var(--font-monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.vault-finder-panel-current.is-article-editing .vault-finder-content {
+  display: none;
+}
+
+.vault-finder-article-editor-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 14px 10px;
+  box-sizing: border-box;
+}
+
+.vault-finder-article-editor-panel.is-hidden {
+  display: none;
+}
+
+.vault-finder-article-editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  flex-shrink: 0;
+}
+
+.vault-finder-article-editor-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.vault-finder-article-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.vault-finder-article-editor-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.vault-finder-article-editor-mode-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vault-finder-article-editor-mode-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.vault-finder-article-editor-cancel {
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--background-modifier-border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.vault-finder-article-editor-cancel:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.vault-finder-article-editor-save {
+  padding: 4px 14px;
+  font-size: 12px;
+}
+
+.vault-finder-article-editor-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  background: var(--background-primary);
+}
+
+.vault-finder-article-editor-body {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.vault-finder-article-editor-input {
+  flex: 1;
+  width: 100%;
+  min-height: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-normal);
+  font-family: var(--font-monospace);
+  font-size: 13px;
+  line-height: 1.65;
+  resize: none;
+  box-sizing: border-box;
+}
+
+.vault-finder-article-editor-input:focus {
+  outline: none;
+}
+
+.vault-finder-article-editor-preview {
+  padding: 14px 16px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.vault-finder-history-detail.is-article-editing .vault-finder-history-article,
+.vault-finder-history-detail.is-article-editing .vault-finder-history-results {
+  display: none;
+}
+
+.vault-finder-history-detail.is-article-editing .vault-finder-article-editor-panel {
+  flex: 1;
+  min-height: 0;
+}
+
 
 .vault-finder-article:empty {
   display: none;
@@ -490,6 +854,13 @@
 .vault-finder-history-list,
 .vault-finder-history-detail {
   min-height: 0;
+}
+
+.vault-finder-history-detail {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
 }
 
 .vault-finder-history-detail.is-hidden,

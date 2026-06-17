@@ -2,7 +2,7 @@ import { ItemView, MarkdownRenderer, Menu, Notice, setIcon, WorkspaceLeaf } from
 import { allModelsForProvider } from '../ai/models';
 import type VaultFinderPlugin from '../main';
 import { clampMatchThreshold } from '../index/matchScore';
-import { type AiProvider, defaultModelForProvider } from '../settings';
+import { AI_PROVIDERS, type AiProvider, defaultModelForProvider, hasValidAiKey, isAiActive } from '../settings';
 import { SearchController } from './searchController';
 import type { SearchHistoryEntry } from './searchHistory';
 import type { SearchHit } from '../index/types';
@@ -13,11 +13,17 @@ import { buildArticleFilename, saveMarkdownToFolder } from './articleSave';
 import { exportArticleToDisk, type ArticleExportFormat } from './articleExport';
 import type { I18nStrings } from '../i18n';
 import { rememberArticleSaveFolder } from '../settings';
+import { copyTextForArticle, stripSourceWikilinks } from '../utils/articleMarkdown';
+import { aiErrorNotice } from '../ai/apiErrors';
+import { ArticleOptimizeForm } from './articleOptimizeForm';
+import { ArticleEditorPanel } from './articleEditorPanel';
 
 export const VAULT_FINDER_VIEW_TYPE = 'vault-finder-search';
 
 type PanelTab = 'current' | 'history';
 type HistoryView = 'list' | 'detail';
+
+type FooterChatTab = 'search' | 'optimize';
 
 export class SearchView extends ItemView {
   private inputEl!: HTMLTextAreaElement;
@@ -38,10 +44,32 @@ export class SearchView extends ItemView {
   private thresholdLabelEl!: HTMLElement;
   private tabCurrentBtn!: HTMLButtonElement;
   private tabHistoryBtn!: HTMLButtonElement;
+  private footerEl!: HTMLElement;
   private activeTab: PanelTab = 'current';
   private historyView: HistoryView = 'list';
   private viewingHistoryEntry: SearchHistoryEntry | null = null;
-  private readonly boundResize = (): void => this.updateFooterInset();
+  private showArticleSources = true;
+  private articleEditing = false;
+  private articleVersions: string[] = [];
+  private articleVersionIndex = 0;
+  private optimizeForm: ArticleOptimizeForm | null = null;
+  private searchChatTabBtn!: HTMLButtonElement;
+  private optimizeChatTabBtn!: HTMLButtonElement;
+  private searchChatPane!: HTMLElement;
+  private optimizeChatPane!: HTMLElement;
+  private footerChatTab: FooterChatTab = 'search';
+  private articleEditorPanel: ArticleEditorPanel | null = null;
+  private historyArticleEditor: ArticleEditorPanel | null = null;
+  private activeArticleHost: HTMLElement | null = null;
+  private articleVersionNavState: {
+    versionLayer: HTMLElement;
+    prevBtn: HTMLButtonElement;
+    nextBtn: HTMLButtonElement;
+    versionLabel: HTMLElement;
+  } | null = null;
+  private readonly boundResize = (): void => {
+    this.updateFooterInset();
+  };
 
   constructor(leaf: WorkspaceLeaf, private plugin: VaultFinderPlugin) {
     super(leaf);
@@ -85,14 +113,40 @@ export class SearchView extends ItemView {
     this.resultsEl = content.createEl('div', { cls: 'vault-finder-results' });
 
     const footer = this.currentPanelEl.createEl('div', { cls: 'vault-finder-footer' });
-    const controls = footer.createEl('div', { cls: 'vault-finder-footer-controls' });
+    this.footerEl = footer;
+
+    this.articleEditorPanel = new ArticleEditorPanel(this.app, this, {
+      getStrings: () => this.plugin.t(),
+      onSave: (markdown) => void this.closeArticleEditor(true, markdown),
+      onCancel: () => void this.closeArticleEditor(false),
+    });
+    this.articleEditorPanel.mount(this.currentPanelEl, footer);
+
+    const chatTabs = footer.createDiv({ cls: 'vault-finder-footer-chat-tabs' });
+    this.searchChatTabBtn = chatTabs.createEl('button', {
+      cls: 'vault-finder-footer-chat-tab is-active',
+      text: t.viewChatTabSearch,
+      type: 'button',
+    });
+    this.optimizeChatTabBtn = chatTabs.createEl('button', {
+      cls: 'vault-finder-footer-chat-tab',
+      text: t.viewChatTabOptimize,
+      type: 'button',
+    });
+    this.searchChatTabBtn.addEventListener('click', () => this.switchFooterChatTab('search'));
+    this.optimizeChatTabBtn.addEventListener('click', () => this.switchFooterChatTab('optimize'));
+
+    this.searchChatPane = footer.createDiv({
+      cls: 'vault-finder-footer-chat-pane vault-finder-footer-chat-pane-search is-active',
+    });
+    const controls = this.searchChatPane.createEl('div', { cls: 'vault-finder-footer-controls' });
 
     this.buildProviderSelect(controls, t);
     this.buildModelSelect(controls, t);
     this.buildScopeSelect(controls, t);
     this.buildMatchThresholdControl(controls, t);
 
-    const inputWrap = footer.createEl('div', { cls: 'vault-finder-input-wrap' });
+    const inputWrap = this.searchChatPane.createEl('div', { cls: 'vault-finder-input-wrap' });
     this.inputEl = inputWrap.createEl('textarea', {
       cls: 'vault-finder-input',
       attr: { placeholder: t.searchPlaceholder, rows: '2' },
@@ -105,6 +159,23 @@ export class SearchView extends ItemView {
     this.sendBtnIconEl = this.sendBtn.createSpan({ cls: 'vault-finder-send-icon-inner' });
     this.setSendButtonMode('search');
     this.sendBtn.setAttribute('aria-label', t.viewSearchButton);
+
+    this.optimizeChatPane = footer.createDiv({
+      cls: 'vault-finder-footer-chat-pane vault-finder-footer-chat-pane-optimize',
+    });
+    this.optimizeForm = new ArticleOptimizeForm({
+      app: this.app,
+      getStrings: () => this.plugin.t(),
+      getSettings: () => this.plugin.settings,
+      getShortcuts: () => this.plugin.settings.articleOptimizeShortcuts,
+      onShortcutsChange: async (shortcuts) => {
+        this.plugin.settings.articleOptimizeShortcuts = shortcuts;
+        await this.plugin.saveSettings();
+      },
+      onSubmit: (instruction, provider, model) =>
+        this.runArticleOptimize(instruction, provider, model),
+    });
+    this.optimizeForm.mount(this.optimizeChatPane);
 
     this.historyPanelEl = containerEl.createEl('div', {
       cls: 'vault-finder-panel vault-finder-panel-history is-hidden',
@@ -119,7 +190,18 @@ export class SearchView extends ItemView {
       getSearchScope: () => this.scopePicker.getValue(),
       onStatusChange: () => this.updateStatus(),
       onHitsChange: () => this.renderResults(),
-      onArticleChange: (markdown, loading) => void this.renderArticle(markdown, loading),
+      onArticleChange: (markdown, loading) => {
+        if (loading) {
+          this.resetArticlePresentationState();
+          void this.renderArticle(null, true);
+          return;
+        }
+        if (markdown?.trim()) {
+          this.articleVersions = [markdown];
+          this.articleVersionIndex = 0;
+        }
+        void this.renderArticle(markdown, false);
+      },
       onSearchingChange: (searching) => this.updateSendButton(searching),
       onHistoryChange: () => this.refreshHistoryList(),
     });
@@ -165,6 +247,13 @@ export class SearchView extends ItemView {
     window.removeEventListener('resize', this.boundResize);
     this.controller.dispose();
     this.scopePicker.destroy();
+    this.optimizeForm?.destroy();
+    this.optimizeForm = null;
+    this.articleEditorPanel?.destroy();
+    this.articleEditorPanel = null;
+    this.historyArticleEditor?.destroy();
+    this.historyArticleEditor = null;
+    this.articleVersionNavState = null;
     this.containerEl.empty();
   }
 
@@ -192,6 +281,11 @@ export class SearchView extends ItemView {
     });
 
     this.articleEl.setAttr('title', t.viewArticleSaveHint);
+    this.optimizeForm?.applyLocale();
+    this.searchChatTabBtn.setText(t.viewChatTabSearch);
+    this.optimizeChatTabBtn.setText(t.viewChatTabOptimize);
+    this.articleEditorPanel?.applyLocale();
+    this.historyArticleEditor?.applyLocale();
     this.updateViewHeaderTitle();
     this.updateStatus();
     this.renderResults();
@@ -228,8 +322,23 @@ export class SearchView extends ItemView {
     this.renderHistoryList();
   }
 
+  private switchFooterChatTab(tab: FooterChatTab): void {
+    this.footerChatTab = tab;
+    this.searchChatTabBtn.toggleClass('is-active', tab === 'search');
+    this.optimizeChatTabBtn.toggleClass('is-active', tab === 'optimize');
+    this.searchChatPane.toggleClass('is-active', tab === 'search');
+    this.optimizeChatPane.toggleClass('is-active', tab === 'optimize');
+    if (tab === 'search') {
+      this.inputEl.focus();
+    } else {
+      this.optimizeForm?.focusInput();
+    }
+  }
+
   private switchTab(tab: PanelTab): void {
     this.activeTab = tab;
+    this.switchFooterChatTab('search');
+    void this.closeArticleEditor(false);
     this.tabCurrentBtn.toggleClass('is-active', tab === 'current');
     this.tabHistoryBtn.toggleClass('is-active', tab === 'history');
     this.currentPanelEl.toggleClass('is-hidden', tab !== 'current');
@@ -269,8 +378,8 @@ export class SearchView extends ItemView {
     const wrap = parent.createEl('div', { cls: 'vault-finder-control' });
     this.providerLabelEl = wrap.createEl('span', { text: t.viewAiProvider, cls: 'vault-finder-label' });
     const select = wrap.createEl('select', { cls: 'dropdown vault-finder-select' });
-    for (const provider of ['OpenAI', 'Anthropic', 'Gemini'] as AiProvider[]) {
-      select.createEl('option', { value: provider, text: provider });
+    for (const provider of AI_PROVIDERS) {
+      select.createEl('option', { value: provider, text: t.aiProviderLabel(provider) });
     }
     select.value = this.plugin.settings.aiProvider;
     select.addEventListener('change', () => {
@@ -363,11 +472,81 @@ export class SearchView extends ItemView {
     await this.plugin.saveSettings();
   }
 
+  private resetArticlePresentationState(): void {
+    this.showArticleSources = true;
+    this.articleEditing = false;
+    this.articleVersions = [];
+    this.articleVersionIndex = 0;
+    this.activeArticleHost = null;
+    this.articleVersionNavState = null;
+    this.optimizeForm?.setRunning(false);
+    this.switchFooterChatTab('search');
+    this.articleEditorPanel?.close();
+    this.historyArticleEditor?.close();
+    this.setArticleEditLayout(false);
+  }
+
+  private getDisplayMarkdown(markdown: string): string {
+    return this.showArticleSources ? markdown : stripSourceWikilinks(markdown);
+  }
+
+  private getCurrentArticleMarkdown(): string {
+    if (this.articleVersions.length > 0) {
+      const index = Math.min(
+        Math.max(this.articleVersionIndex, 0),
+        this.articleVersions.length - 1,
+      );
+      const version = this.articleVersions[index]?.trim();
+      if (version) return version;
+    }
+    return this.controller.article?.trim() ?? this.viewingHistoryEntry?.article?.trim() ?? '';
+  }
+
+  private syncControllerToCurrentVersion(): void {
+    const markdown = this.getCurrentArticleMarkdown();
+    if (!markdown) return;
+    this.controller.article = markdown;
+    if (this.viewingHistoryEntry) {
+      this.viewingHistoryEntry.article = markdown;
+    }
+  }
+
+  private setCurrentArticleMarkdown(markdown: string, options?: { appendVersion?: boolean }): void {
+    const trimmed = markdown.trim();
+    if (!trimmed) return;
+
+    if (options?.appendVersion) {
+      const displayed = this.getCurrentArticleMarkdown();
+      if (this.articleVersions.length === 0) {
+        this.articleVersions =
+          displayed && displayed !== trimmed ? [displayed, trimmed] : [trimmed];
+      } else {
+        this.articleVersions = [...this.articleVersions, trimmed];
+      }
+      this.articleVersionIndex = this.articleVersions.length - 1;
+    } else if (this.articleVersions.length > 0) {
+      const index = Math.min(
+        Math.max(this.articleVersionIndex, 0),
+        this.articleVersions.length - 1,
+      );
+      this.articleVersions[index] = trimmed;
+      this.articleVersionIndex = index;
+    } else {
+      this.articleVersions = [trimmed];
+      this.articleVersionIndex = 0;
+    }
+
+    this.syncControllerToCurrentVersion();
+  }
+
   private async renderArticle(markdown: string | null, loading: boolean): Promise<void> {
     const targetArticleEl = this.activeTab === 'history' ? this.getHistoryArticleEl() : this.articleEl;
     if (!targetArticleEl) return;
 
     targetArticleEl.empty();
+    this.activeArticleHost = null;
+    this.articleVersionNavState = null;
+
     if (loading) {
       const loadingEl = targetArticleEl.createEl('div', {
         cls: 'vault-finder-article-loading',
@@ -376,20 +555,300 @@ export class SearchView extends ItemView {
       setIcon(loadingEl.createSpan({ cls: 'vault-finder-article-loading-icon' }), 'loader-2');
       return;
     }
-    if (!markdown?.trim()) return;
+
+    const content = markdown?.trim() ?? this.getCurrentArticleMarkdown();
+    if (!content) return;
 
     targetArticleEl.setAttr('title', this.plugin.t().viewArticleSaveHint);
+    await this.renderArticleChrome(targetArticleEl, content);
+    this.renderResults();
+  }
 
-    const body = targetArticleEl.createEl('div', {
+  private async renderArticleChrome(host: HTMLElement, markdown: string): Promise<void> {
+    this.activeArticleHost = host;
+    host.empty();
+
+    const t = this.plugin.t();
+    const toolbar = host.createDiv({ cls: 'vault-finder-article-toolbar' });
+    toolbar.createSpan({ cls: 'vault-finder-article-toolbar-title', text: t.viewArticleHeading });
+
+    const actions = toolbar.createDiv({ cls: 'vault-finder-article-toolbar-actions' });
+    this.createToolbarIconButton(
+      actions,
+      this.showArticleSources ? 'eye' : 'eye-off',
+      this.showArticleSources ? t.viewToggleSourcesHide : t.viewToggleSourcesShow,
+      () => this.toggleArticleSourceVisibility(),
+    );
+    this.createToolbarIconButton(actions, 'copy', t.viewCopyArticle, () => {
+      void this.copyArticleContent();
+    });
+    this.createToolbarIconButton(actions, 'pencil', t.viewArticleEdit, () => {
+      void this.openArticleEditor();
+    });
+    if (this.activeTab === 'current') {
+      this.createToolbarIconButton(actions, 'bot', t.viewArticleOptimize, () => {
+        this.switchFooterChatTab('optimize');
+      });
+    }
+
+    const versionLayer = host.createDiv({ cls: 'vault-finder-article-version-layer' });
+
+    const prevRail = versionLayer.createDiv({ cls: 'vault-finder-version-rail vault-finder-version-rail-prev' });
+    const prevBtn = this.createToolbarIconButton(
+      prevRail,
+      'chevron-left',
+      t.viewArticleVersionPrev,
+      () => this.navigateArticleVersion(-1),
+      'vault-finder-version-nav vault-finder-version-prev',
+    );
+
+    const contentCol = versionLayer.createDiv({ cls: 'vault-finder-article-version-content' });
+    const versionLabel = contentCol.createSpan({ cls: 'vault-finder-article-version-label' });
+    const inner = contentCol.createDiv({ cls: 'vault-finder-article-inner' });
+    const main = inner.createDiv({ cls: 'vault-finder-article-main' });
+    const body = main.createEl('div', {
       cls: 'vault-finder-article-body markdown-rendered',
     });
-    await MarkdownRenderer.render(this.app, markdown, body, '', this);
 
-    attachInternalLinkHandler(body, this.app, (el, type, handler) => {
-      this.registerDomEvent(el, type, handler);
+    const nextRail = versionLayer.createDiv({ cls: 'vault-finder-version-rail vault-finder-version-rail-next' });
+    const nextBtn = this.createToolbarIconButton(
+      nextRail,
+      'chevron-right',
+      t.viewArticleVersionNext,
+      () => this.navigateArticleVersion(1),
+      'vault-finder-version-nav vault-finder-version-next',
+    );
+
+    const displayMarkdown = this.getDisplayMarkdown(markdown);
+    await MarkdownRenderer.render(this.app, displayMarkdown, body, '', this);
+    if (this.showArticleSources) {
+      attachInternalLinkHandler(body, this.app, (el, type, handler) => {
+        this.registerDomEvent(el, type, handler);
+      });
+    }
+
+    this.articleVersionNavState = {
+      versionLayer,
+      prevBtn,
+      nextBtn,
+      versionLabel,
+    };
+
+    this.updateArticleVersionNavDisplay();
+  }
+
+  private updateArticleVersionNavDisplay(): void {
+    const state = this.articleVersionNavState;
+    if (!state) return;
+
+    const { versionLayer, prevBtn, nextBtn, versionLabel } = state;
+    const multi = this.articleVersions.length > 1;
+    versionLayer.toggleClass('has-multiple-versions', multi);
+    this.updateVersionLabel(versionLabel);
+    prevBtn.toggleClass('is-disabled', !multi || this.articleVersionIndex <= 0);
+    nextBtn.toggleClass(
+      'is-disabled',
+      !multi || this.articleVersionIndex >= this.articleVersions.length - 1,
+    );
+  }
+
+  private createToolbarIconButton(
+    parent: HTMLElement,
+    icon: string,
+    label: string,
+    onClick: () => void,
+    extraClass = 'vault-finder-icon-btn',
+  ): HTMLButtonElement {
+    const btn = parent.createEl('button', {
+      cls: extraClass,
+      type: 'button',
+      attr: { 'aria-label': label, title: label },
     });
+    setIcon(btn.createSpan({ cls: 'vault-finder-icon-btn-inner' }), icon);
+    btn.addEventListener('click', (evt) => {
+      evt.stopPropagation();
+      onClick();
+    });
+    return btn;
+  }
 
-    this.renderResults();
+  private updateVersionLabel(labelEl: HTMLElement): void {
+    const total = this.articleVersions.length;
+    if (total <= 1) {
+      labelEl.setText('');
+      return;
+    }
+    labelEl.setText(this.plugin.t().viewArticleVersionLabel(this.articleVersionIndex + 1, total));
+  }
+
+  private toggleArticleSourceVisibility(): void {
+    this.showArticleSources = !this.showArticleSources;
+    void this.refreshArticleBody();
+  }
+
+  private async refreshArticleBody(): Promise<void> {
+    const host = this.activeArticleHost ?? this.getActiveArticleHost();
+    if (!host) return;
+    const markdown = this.getCurrentArticleMarkdown();
+    if (!markdown) return;
+    await this.renderArticleChrome(host, markdown);
+  }
+
+  private getActiveEditorPanel(): ArticleEditorPanel | null {
+    if (this.activeTab === 'history' && this.historyView === 'detail') {
+      return this.historyArticleEditor;
+    }
+    return this.articleEditorPanel;
+  }
+
+  private ensureHistoryEditor(): ArticleEditorPanel {
+    if (!this.historyArticleEditor) {
+      this.historyArticleEditor = new ArticleEditorPanel(this.app, this, {
+        getStrings: () => this.plugin.t(),
+        onSave: (markdown) => void this.closeArticleEditor(true, markdown),
+        onCancel: () => void this.closeArticleEditor(false),
+      });
+      const articleHost = this.historyDetailEl.querySelector('.vault-finder-history-article');
+      if (articleHost instanceof HTMLElement) {
+        this.historyArticleEditor.mount(this.historyDetailEl, articleHost);
+      } else {
+        this.historyArticleEditor.mount(this.historyDetailEl);
+      }
+    }
+    return this.historyArticleEditor;
+  }
+
+  private setArticleEditLayout(editing: boolean): void {
+    this.articleEditing = editing;
+    if (this.activeTab === 'current') {
+      this.currentPanelEl.toggleClass('is-article-editing', editing);
+      return;
+    }
+    if (this.activeTab === 'history' && this.historyView === 'detail') {
+      this.historyDetailEl.toggleClass('is-article-editing', editing);
+    }
+  }
+
+  private async openArticleEditor(): Promise<void> {
+    const markdown = this.getCurrentArticleMarkdown();
+    if (!markdown) return;
+
+    const panel =
+      this.activeTab === 'history' && this.historyView === 'detail'
+        ? this.ensureHistoryEditor()
+        : this.articleEditorPanel;
+    if (!panel || panel.isOpen()) return;
+
+    this.setArticleEditLayout(true);
+    panel.open(markdown);
+  }
+
+  private async closeArticleEditor(save: boolean, savedMarkdown?: string): Promise<void> {
+    const panel = this.getActiveEditorPanel();
+    if (!panel?.isOpen()) {
+      this.setArticleEditLayout(false);
+      return;
+    }
+
+    if (save && savedMarkdown !== undefined) {
+      this.setCurrentArticleMarkdown(savedMarkdown);
+    }
+
+    panel.close();
+    this.setArticleEditLayout(false);
+
+    if (save && savedMarkdown !== undefined) {
+      const host = this.getActiveArticleHost();
+      if (host) {
+        await this.renderArticleChrome(host, savedMarkdown);
+      }
+    }
+  }
+
+  private async navigateArticleVersion(delta: number): Promise<void> {
+    if (this.articleVersions.length <= 1) return;
+    const next = this.articleVersionIndex + delta;
+    if (next < 0 || next >= this.articleVersions.length) return;
+    this.articleVersionIndex = next;
+    this.articleEditing = false;
+    this.historyArticleEditor?.close();
+    this.setArticleEditLayout(false);
+    const markdown = this.getCurrentArticleMarkdown();
+    const host = this.activeArticleHost ?? this.getActiveArticleHost();
+    if (!host || !markdown) return;
+    this.syncControllerToCurrentVersion();
+    await this.renderArticleChrome(host, markdown);
+    this.updateArticleVersionNavDisplay();
+  }
+
+  private getActiveArticleHost(): HTMLElement | null {
+    if (this.activeTab === 'history' && this.historyView === 'detail') {
+      return this.getHistoryArticleEl();
+    }
+    return this.articleEl;
+  }
+
+  private async copyArticleContent(): Promise<void> {
+    const t = this.plugin.t();
+    const markdown = this.getCurrentArticleMarkdown();
+    if (!markdown) return;
+    const text = copyTextForArticle(markdown, this.showArticleSources);
+    try {
+      await navigator.clipboard.writeText(text);
+      new Notice(t.noticeArticleCopied);
+    } catch {
+      new Notice(t.noticeArticleCopyFailed);
+    }
+  }
+
+  private async runArticleOptimize(
+    instruction: string,
+    provider: AiProvider,
+    model: string,
+  ): Promise<void> {
+    const t = this.plugin.t();
+    const article = this.getCurrentArticleMarkdown();
+    if (!article) return;
+
+    if (!isAiActive(this.plugin.settings)) {
+      const reason = !this.plugin.settings.aiEnabled
+        ? t.noticeArticleOptimizeNotEnabled
+        : !hasValidAiKey(this.plugin.settings)
+          ? t.noticeArticleOptimizeNoApiKey
+          : t.searchAiFailed;
+      new Notice(aiErrorNotice(t.noticeArticleOptimizeFailed, new Error(reason)), 10000);
+      return;
+    }
+
+    this.optimizeForm?.setRunning(true);
+    try {
+      const query = this.saveQueryForArticleSave();
+      const sourceArticle = this.getCurrentArticleMarkdown();
+      if (!sourceArticle) return;
+
+      const refined = await this.plugin.aiService.refineArticle(instruction, sourceArticle, query, {
+        provider,
+        model,
+      });
+      if (!refined.trim()) {
+        throw new Error(`${provider} / ${model}: empty response`);
+      }
+      this.setCurrentArticleMarkdown(refined, { appendVersion: true });
+      this.articleEditing = false;
+      const host = this.activeArticleHost ?? this.getActiveArticleHost();
+      const displayed = this.getCurrentArticleMarkdown();
+      if (host && displayed) {
+        await this.renderArticleChrome(host, displayed);
+      } else if (displayed) {
+        await this.renderArticle(displayed, false);
+      }
+      this.updateArticleVersionNavDisplay();
+      new Notice(t.noticeArticleOptimized);
+    } catch (error) {
+      new Notice(aiErrorNotice(t.noticeArticleOptimizeFailed, error), 10000);
+    } finally {
+      this.optimizeForm?.setRunning(false);
+    }
   }
 
   private getHistoryArticleEl(): HTMLElement | null {
@@ -495,6 +954,8 @@ export class SearchView extends ItemView {
   private renderHistoryList(): void {
     this.historyListEl.empty();
     this.historyDetailEl.empty();
+    this.historyArticleEditor?.destroy();
+    this.historyArticleEditor = null;
     this.historyDetailEl.addClass('is-hidden');
     this.historyListEl.removeClass('is-hidden');
 
@@ -544,6 +1005,12 @@ export class SearchView extends ItemView {
     this.controller.applyMatchSplit(entry.hits.map((hit) => ({ ...hit })));
     this.controller.selectedIndex = -1;
     this.controller.article = entry.article;
+    this.articleVersions = entry.article?.trim() ? [entry.article] : [];
+    this.articleVersionIndex = 0;
+    this.showArticleSources = true;
+    this.articleEditing = false;
+    this.historyArticleEditor?.close();
+    this.setArticleEditLayout(false);
 
     if (entry.article?.trim()) {
       void this.renderArticleInto(articleHost, entry.article);
@@ -554,13 +1021,9 @@ export class SearchView extends ItemView {
   }
 
   private async renderArticleInto(host: HTMLElement, markdown: string): Promise<void> {
-    host.empty();
     host.setAttr('title', this.plugin.t().viewArticleSaveHint);
-    const body = host.createEl('div', { cls: 'vault-finder-article-body markdown-rendered' });
-    await MarkdownRenderer.render(this.app, markdown, body, '', this);
-    attachInternalLinkHandler(body, this.app, (el, type, handler) => {
-      this.registerDomEvent(el, type, handler);
-    });
+    this.activeArticleHost = host;
+    await this.renderArticleChrome(host, markdown);
     this.renderResults();
   }
 
@@ -568,13 +1031,13 @@ export class SearchView extends ItemView {
     this.registerDomEvent(this.articleEl, 'contextmenu', (evt) => {
       if (this.activeTab !== 'current') return;
       if (!this.isArticleContextEvent(evt)) return;
-      this.showArticleSaveMenu(evt, () => this.controller.article);
+      this.showArticleSaveMenu(evt, () => this.getCurrentArticleMarkdown());
     });
 
     this.registerDomEvent(this.historyDetailEl, 'contextmenu', (evt) => {
       if (this.activeTab !== 'history' || this.historyView !== 'detail') return;
       if (!this.isArticleContextEvent(evt)) return;
-      this.showArticleSaveMenu(evt, () => this.viewingHistoryEntry?.article ?? this.controller.article);
+      this.showArticleSaveMenu(evt, () => this.getCurrentArticleMarkdown());
     });
   }
 
@@ -702,8 +1165,9 @@ export class SearchView extends ItemView {
   ): Promise<void> {
     const markdown = getArticle()?.trim() ?? '';
     if (!markdown) return;
+    const text = copyTextForArticle(markdown, this.showArticleSources);
     try {
-      await navigator.clipboard.writeText(markdown);
+      await navigator.clipboard.writeText(text);
       new Notice(t.noticeArticleCopied);
     } catch {
       new Notice(t.noticeArticleCopyFailed);

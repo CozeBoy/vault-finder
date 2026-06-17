@@ -2,6 +2,22 @@ import { requestUrl, type RequestUrlParam, type RequestUrlResponse } from 'obsid
 import type { VaultFinderSettings, AiProvider } from '../settings';
 import { modelsForProvider } from '../settings';
 import type { SearchHit } from '../index/types';
+import {
+  aiErrorMessage,
+  assertNonEmptyResponse,
+  assertResponseOk,
+} from './apiErrors';
+
+const DEFAULT_REFINE_PROMPT = `你是知识库检索综述优化助手。根据用户的优化要求，在保留事实准确性的前提下改写下方 Markdown 综述。
+要求：
+1. 保持 Markdown 结构与章节层次清晰
+2. 不得编造原文中没有的信息
+3. 若原文包含 [[文件路径]] 引用，按需保留或精简
+4. 只输出优化后的正文（Markdown），不要输出解释或其他格式`;
+
+const ANTHROPIC_API_VERSION = '2023-06-01';
+const ANTHROPIC_MAX_OUTPUT_TOKENS = 16384;
+const GEMINI_MAX_OUTPUT_TOKENS = 16384;
 
 export class AiService {
   constructor(private getSettings: () => VaultFinderSettings) {}
@@ -50,6 +66,22 @@ export class AiService {
     return [...kept, ...rest];
   }
 
+  async refineArticle(
+    instruction: string,
+    article: string,
+    query: string,
+    options?: { provider?: AiProvider; model?: string },
+  ): Promise<string> {
+    const settings = this.getSettings();
+    const effective: VaultFinderSettings = {
+      ...settings,
+      aiProvider: options?.provider ?? settings.aiProvider,
+      aiModel: options?.model ?? settings.aiModel,
+    };
+    const content = `用户查询：${query}\n\n当前综述内容：\n${article}\n\n优化要求：\n${instruction}`;
+    return this.chat(DEFAULT_REFINE_PROMPT, content, effective);
+  }
+
   private async chat(
     systemPrompt: string,
     userContent: string,
@@ -57,14 +89,24 @@ export class AiService {
   ): Promise<string> {
     const baseUrl = settings.aiBaseUrl.replace(/\/+$/, '');
     const timeout = settings.aiTimeoutMs;
+    const { aiProvider, aiModel, aiApiKey } = settings;
 
-    switch (settings.aiProvider) {
+    switch (aiProvider) {
       case 'OpenAI':
-        return this.openAiChat(baseUrl, systemPrompt, userContent, settings.aiModel, settings.aiApiKey, timeout);
+      case 'Compatible':
+        return this.openAiChat(
+          baseUrl,
+          systemPrompt,
+          userContent,
+          aiModel,
+          aiApiKey,
+          timeout,
+          aiProvider,
+        );
       case 'Anthropic':
-        return this.anthropicChat(baseUrl, systemPrompt, userContent, settings.aiModel, settings.aiApiKey, timeout);
+        return this.anthropicChat(baseUrl, systemPrompt, userContent, aiModel, aiApiKey, timeout);
       case 'Gemini':
-        return this.geminiChat(baseUrl, systemPrompt, userContent, settings.aiModel, settings.aiApiKey, timeout);
+        return this.geminiChat(baseUrl, systemPrompt, userContent, aiModel, aiApiKey, timeout);
     }
   }
 
@@ -75,8 +117,9 @@ export class AiService {
     model: string,
     apiKey: string,
     timeout: number,
+    providerLabel: AiProvider = 'OpenAI',
   ): Promise<string> {
-    const res = await requestWithTimeout(
+    const res = await safeRequest(
       {
         url: `${baseUrl}/v1/chat/completions`,
         method: 'POST',
@@ -94,10 +137,12 @@ export class AiService {
         throw: false,
       },
       timeout,
+      providerLabel,
     );
-    if (res.status >= 400) throw new Error(`OpenAI error ${res.status}`);
-    const json: unknown = res.json;
-    return extractOpenAiText(json);
+    const payload = assertResponseOk(providerLabel, res);
+    const text = extractOpenAiText(payload.json);
+    assertNonEmptyResponse(providerLabel, text, payload.json);
+    return text;
   }
 
   private async anthropicChat(
@@ -108,27 +153,31 @@ export class AiService {
     apiKey: string,
     timeout: number,
   ): Promise<string> {
-    const res = await requestWithTimeout(
+    const res = await safeRequest(
       {
         url: `${baseUrl}/v1/messages`,
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
+        headers: buildAnthropicHeaders(apiKey, baseUrl),
         body: JSON.stringify({
           model,
-          max_tokens: 4096,
+          max_tokens: ANTHROPIC_MAX_OUTPUT_TOKENS,
           system,
-          messages: [{ role: 'user', content: user }],
+          messages: [
+            {
+              role: 'user',
+              content: user,
+            },
+          ],
         }),
         throw: false,
       },
       timeout,
+      'Anthropic',
     );
-    if (res.status >= 400) throw new Error(`Anthropic error ${res.status}`);
-    return extractAnthropicText(res.json);
+    const payload = assertResponseOk('Anthropic', res);
+    const text = extractAnthropicText(payload.json);
+    assertNonEmptyResponse('Anthropic', text, payload.json);
+    return text;
   }
 
   private async geminiChat(
@@ -139,23 +188,68 @@ export class AiService {
     apiKey: string,
     timeout: number,
   ): Promise<string> {
-    const url = `${baseUrl}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-    const res = await requestWithTimeout(
+    const { url, headers } = buildGeminiRequest(baseUrl, model, apiKey);
+    const res = await safeRequest(
       {
         url,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
-          contents: [{ role: 'user', parts: [{ text: user }] }],
+          system_instruction: {
+            parts: [{ text: system }],
+          },
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: user }],
+            },
+          ],
+          generationConfig: {
+            maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+          },
         }),
         throw: false,
       },
       timeout,
+      'Gemini',
     );
-    if (res.status >= 400) throw new Error(`Gemini error ${res.status}`);
-    return extractGeminiText(res.json);
+    const payload = assertResponseOk('Gemini', res);
+    const text = extractGeminiText(payload.json);
+    assertNonEmptyResponse('Gemini', text, payload.json);
+    return text;
   }
+}
+
+function buildAnthropicHeaders(apiKey: string, baseUrl: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'anthropic-version': ANTHROPIC_API_VERSION,
+  };
+  if (/anthropic\.com/i.test(baseUrl)) {
+    headers['x-api-key'] = apiKey;
+  } else {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+    headers['x-api-key'] = apiKey;
+  }
+  return headers;
+}
+
+function buildGeminiRequest(
+  baseUrl: string,
+  model: string,
+  apiKey: string,
+): { url: string; headers: Record<string, string> } {
+  const root = baseUrl.replace(/\/+$/, '');
+  const url = `${root}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (/googleapis\.com/i.test(root)) {
+    headers['x-goog-api-key'] = apiKey;
+  } else {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+  return { url, headers };
 }
 
 function parseRelevanceIndices(text: string): number[] {
@@ -189,7 +283,6 @@ function parseKeywordArray(text: string): string[] {
       return parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
     }
   } catch {
-    // try to extract JSON array from response
     const match = trimmed.match(/\[[\s\S]*\]/);
     if (match) {
       try {
@@ -212,16 +305,49 @@ function extractOpenAiText(json: unknown): string {
   if (typeof json !== 'object' || json === null) return '';
   const choices = (json as { choices?: unknown }).choices;
   if (!Array.isArray(choices) || choices.length === 0) return '';
-  const message = choices[0] as { message?: { content?: string } };
-  return message.message?.content?.trim() ?? '';
+  const message = (choices[0] as { message?: { content?: unknown } }).message;
+  return extractTextContent(message?.content).trim();
+}
+
+function extractTextContent(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  const parts: string[] = [];
+  for (const block of content) {
+    if (typeof block === 'string') {
+      parts.push(block);
+      continue;
+    }
+    if (typeof block !== 'object' || block === null) continue;
+    const text = (block as { text?: unknown }).text;
+    if (typeof text === 'string' && text.length > 0) {
+      parts.push(text);
+    }
+  }
+  return parts.join('');
 }
 
 function extractAnthropicText(json: unknown): string {
   if (typeof json !== 'object' || json === null) return '';
-  const content = (json as { content?: unknown }).content;
-  if (!Array.isArray(content)) return '';
-  const block = content[0] as { text?: string };
-  return block.text?.trim() ?? '';
+
+  const record = json as Record<string, unknown>;
+
+  const content = record.content;
+  if (typeof content === 'string' && content.trim()) {
+    return content.trim();
+  }
+
+  const fromBlocks = extractTextContent(content).trim();
+  if (fromBlocks) return fromBlocks;
+
+  const choices = record.choices;
+  if (Array.isArray(choices) && choices.length > 0) {
+    const message = (choices[0] as { message?: { content?: unknown } }).message;
+    const fromOpenAiShim = extractTextContent(message?.content).trim();
+    if (fromOpenAiShim) return fromOpenAiShim;
+  }
+
+  return '';
 }
 
 function extractGeminiText(json: unknown): string {
@@ -229,13 +355,23 @@ function extractGeminiText(json: unknown): string {
   const candidates = (json as { candidates?: unknown }).candidates;
   if (!Array.isArray(candidates) || candidates.length === 0) return '';
   const parts = (candidates[0] as { content?: { parts?: unknown } }).content?.parts;
-  if (!Array.isArray(parts)) return '';
-  const part = parts[0] as { text?: string };
-  return part.text?.trim() ?? '';
+  return extractTextContent(parts).trim();
 }
 
 export function providerOptions(provider: AiProvider): string[] {
   return [...modelsForProvider(provider)];
+}
+
+async function safeRequest(
+  params: RequestUrlParam,
+  timeoutMs: number,
+  providerLabel: string,
+): Promise<RequestUrlResponse> {
+  try {
+    return await requestWithTimeout(params, timeoutMs);
+  } catch (error) {
+    throw new Error(`${providerLabel}: ${aiErrorMessage(error)}`);
+  }
 }
 
 async function requestWithTimeout(
@@ -246,7 +382,10 @@ async function requestWithTimeout(
 
   let timer: number | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
-    timer = window.setTimeout(() => reject(new Error('Request timeout')), timeoutMs);
+    timer = window.setTimeout(
+      () => reject(new Error('Request timeout')),
+      timeoutMs,
+    );
   });
 
   try {

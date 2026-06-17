@@ -1,7 +1,14 @@
 import { resolveLanguage } from './i18n';
 
 export type LanguageSetting = 'auto' | 'zh-CN' | 'en';
-export type AiProvider = 'OpenAI' | 'Anthropic' | 'Gemini';
+export type AiProvider = 'OpenAI' | 'Anthropic' | 'Gemini' | 'Compatible';
+
+export const AI_PROVIDERS: readonly AiProvider[] = [
+  'OpenAI',
+  'Anthropic',
+  'Gemini',
+  'Compatible',
+];
 
 export interface VaultFinderSettings {
   language: LanguageSetting;
@@ -48,11 +55,72 @@ export interface VaultFinderSettings {
   keywordCacheFolder: string;
   /** Recently used folders when saving search summary articles */
   articleSaveFolderHistory: string[];
+  /** Quick prompts for AI article optimization chat */
+  articleOptimizeShortcuts: ArticleOptimizeShortcut[];
+}
+
+export interface ArticleOptimizeShortcut {
+  id: string;
+  label: string;
+  text: string;
 }
 
 export const VECTOR_EMBED_CONCURRENCY_MIN = 1;
 export const VECTOR_EMBED_CONCURRENCY_MAX = 32;
 export const ARTICLE_SAVE_FOLDER_HISTORY_MAX = 10;
+export const ARTICLE_OPTIMIZE_SHORTCUTS_MAX = 24;
+
+export const DEFAULT_OPTIMIZE_SHORTCUTS_ZH: ArticleOptimizeShortcut[] = [
+  { id: 'opt-shrink', label: '精简', text: '请在不丢失关键信息的前提下精简文字，删除冗余表述。' },
+  { id: 'opt-expand', label: '扩写', text: '请适当扩写，补充细节与层次，使论述更完整。' },
+  { id: 'opt-casual', label: '口语化', text: '改为更口语化、易读的表达方式，适合快速浏览。' },
+  { id: 'opt-formal', label: '学术化', text: '改为更正式、客观的学术写作风格。' },
+  { id: 'opt-summary', label: '突出结论', text: '把核心结论与要点前置，并加强总结性段落。' },
+  { id: 'opt-structure', label: '优化结构', text: '优化章节结构与段落衔接，使全文层次更清晰。' },
+];
+
+export const DEFAULT_OPTIMIZE_SHORTCUTS_EN: ArticleOptimizeShortcut[] = [
+  { id: 'opt-shrink', label: 'Condense', text: 'Condense the text without losing key information; remove redundancy.' },
+  { id: 'opt-expand', label: 'Expand', text: 'Expand with more detail and structure so the argument feels complete.' },
+  { id: 'opt-casual', label: 'Casual tone', text: 'Rewrite in a more conversational, easy-to-scan tone.' },
+  { id: 'opt-formal', label: 'Formal tone', text: 'Rewrite in a formal, objective academic style.' },
+  { id: 'opt-summary', label: 'Lead with conclusions', text: 'Move core conclusions and takeaways to the front; strengthen the summary.' },
+  { id: 'opt-structure', label: 'Improve structure', text: 'Improve section hierarchy and transitions for clearer flow.' },
+];
+
+export function defaultOptimizeShortcuts(language: 'zh-CN' | 'en'): ArticleOptimizeShortcut[] {
+  return language === 'en'
+    ? DEFAULT_OPTIMIZE_SHORTCUTS_EN.map((item) => ({ ...item }))
+    : DEFAULT_OPTIMIZE_SHORTCUTS_ZH.map((item) => ({ ...item }));
+}
+
+export function normalizeArticleOptimizeShortcuts(input: unknown): ArticleOptimizeShortcut[] {
+  if (!Array.isArray(input)) return [...DEFAULT_OPTIMIZE_SHORTCUTS_ZH];
+  const seen = new Set<string>();
+  const result: ArticleOptimizeShortcut[] = [];
+  for (const raw of input) {
+    if (typeof raw !== 'object' || raw === null) continue;
+    const record = raw as Record<string, unknown>;
+    const label = typeof record.label === 'string' ? record.label.trim() : '';
+    const text = typeof record.text === 'string' ? record.text.trim() : '';
+    if (!label || !text) continue;
+    let id = typeof record.id === 'string' ? record.id.trim() : '';
+    if (!id || seen.has(id)) {
+      id = createOptimizeShortcutId();
+    }
+    seen.add(id);
+    result.push({ id, label, text });
+    if (result.length >= ARTICLE_OPTIMIZE_SHORTCUTS_MAX) break;
+  }
+  return result;
+}
+
+export function createOptimizeShortcutId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `opt-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
 
 export const EMBEDDING_MODELS = [
   'text-embedding-3-small',
@@ -207,6 +275,21 @@ export const GEMINI_MODELS = [
   'gemini-3-flash-preview',
 ] as const;
 
+/** OpenAI-compatible `/v1/chat/completions` — model names depend on your gateway. */
+export const COMPATIBLE_MODELS = [
+  'gpt-5.5',
+  'gpt-5.4',
+  'gpt-5.3',
+  'claude-sonnet-4-6',
+  'claude-sonnet-4-5',
+  'claude-opus-4-6',
+  'claude-opus-4-5',
+  'gemini-3.1-pro-preview',
+  'gemini-3.5-flash',
+  'gemini-3-pro-preview',
+  'gemini-3-flash-preview',
+] as const;
+
 export const DEFAULT_EXCLUDE_EXTENSIONS = [
   'png',
   'jpg',
@@ -268,6 +351,7 @@ export const DEFAULT_SETTINGS: VaultFinderSettings = {
     OpenAI: [],
     Anthropic: [],
     Gemini: [],
+    Compatible: [],
   },
 
   vectorSearchEnabled: true,
@@ -282,6 +366,7 @@ export const DEFAULT_SETTINGS: VaultFinderSettings = {
   vectorCacheFolder: '',
   keywordCacheFolder: '',
   articleSaveFolderHistory: [],
+  articleOptimizeShortcuts: [...DEFAULT_OPTIMIZE_SHORTCUTS_ZH],
 };
 
 export function clampVectorEmbedConcurrency(value: number): number {
@@ -374,6 +459,8 @@ export function modelsForProvider(provider: AiProvider): readonly string[] {
       return ANTHROPIC_MODELS;
     case 'Gemini':
       return GEMINI_MODELS;
+    case 'Compatible':
+      return COMPATIBLE_MODELS;
   }
 }
 

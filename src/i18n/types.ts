@@ -1,3 +1,5 @@
+import type { AiProvider } from '../settings';
+
 export interface I18nStrings {
   ribbonTooltip: string;
   ribbonOpenSettings: string;
@@ -21,6 +23,7 @@ export interface I18nStrings {
 
   viewAiProvider: string;
   viewAiModel: string;
+  aiProviderLabel: (provider: AiProvider) => string;
   viewSearchScope: string;
   viewScopeEntireVault: string;
   viewScopeFilterPlaceholder: string;
@@ -47,6 +50,38 @@ export interface I18nStrings {
   viewArticleSaveHint: string;
   viewArticleHeading: string;
   viewSourceHits: string;
+  viewToggleSourcesShow: string;
+  viewToggleSourcesHide: string;
+  viewArticleEdit: string;
+  viewArticleEditSave: string;
+  viewArticleEditCancel: string;
+  viewArticleEditPanelTitle: string;
+  viewArticleEditMarkdown: string;
+  viewArticleEditPreview: string;
+  viewArticleOptimize: string;
+  viewChatTabSearch: string;
+  viewChatTabOptimize: string;
+  viewOptimizePlaceholder: string;
+  viewOptimizeSubmit: string;
+  viewOptimizeRunning: string;
+  viewArticleVersionPrev: string;
+  viewArticleVersionNext: string;
+  viewArticleVersionLabel: (current: number, total: number) => string;
+  noticeArticleOptimized: string;
+  noticeArticleOptimizeFailed: string;
+  noticeArticleOptimizeNotEnabled: string;
+  noticeArticleOptimizeNoApiKey: string;
+  viewOptimizeShortcuts: string;
+  viewOptimizeShortcutsEmpty: string;
+  viewOptimizeShortcutSelectPlaceholder: string;
+  viewOptimizeShortcutsManage: string;
+  viewOptimizeShortcutInsert: string;
+  viewOptimizeShortcutAdd: string;
+  viewOptimizeShortcutSave: string;
+  viewOptimizeShortcutDelete: string;
+  viewOptimizeShortcutLabel: string;
+  viewOptimizeShortcutText: string;
+  viewOptimizeShortcutNewLabel: string;
 
   folderPickerTitle: string;
   folderPickerSelectCurrent: string;
@@ -125,6 +160,7 @@ export interface I18nStrings {
   settingsAiBaseUrl: string;
   settingsAiBaseUrlDesc: string;
   settingsAiProvider: string;
+  settingsAiProviderDesc: string;
   settingsAiModel: string;
   settingsAiModelDesc: string;
   settingsAiCustomModels: (provider: string) => string;

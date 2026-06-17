@@ -49,5 +49,6 @@ export function normalizeCustomModels(
     OpenAI: input?.OpenAI ?? [],
     Anthropic: input?.Anthropic ?? [],
     Gemini: input?.Gemini ?? [],
+    Compatible: input?.Compatible ?? [],
   };
 }

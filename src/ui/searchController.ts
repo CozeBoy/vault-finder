@@ -1,4 +1,5 @@
 import { Notice } from 'obsidian';
+import { aiErrorNotice } from '../ai/apiErrors';
 import { computeMatchPercents, splitHitsByThreshold } from '../index/matchScore';
 import type { SearchHit } from '../index/types';
 import type VaultFinderPlugin from '../main';
@@ -115,9 +116,9 @@ export class SearchController {
             if (expanded.length > 0) {
               rawHits = await this.plugin.index.searchAsync([query, ...expanded], scopePath);
             }
-          } catch {
+          } catch (error) {
             if (!this.plugin.settings.aiFallbackToLocal) {
-              new Notice(this.plugin.t().searchAiFailed);
+              new Notice(aiErrorNotice(this.plugin.t().searchAiFailed, error), 10000);
             }
           }
         }
@@ -142,10 +143,10 @@ export class SearchController {
             if (generation !== this.searchGeneration) return;
             rawHits =
               filtered.length > 0 ? [...exactHits, ...filtered] : [...exactHits, ...otherHits];
-          } catch {
+          } catch (error) {
             rawHits = beforeAiFilter;
             if (!this.plugin.settings.aiFallbackToLocal) {
-              new Notice(this.plugin.t().searchAiFailed);
+              new Notice(aiErrorNotice(this.plugin.t().searchAiFailed, error), 10000);
             }
           }
         } else {
@@ -221,13 +222,11 @@ export class SearchController {
       if (generation !== this.searchGeneration) return;
       this.article = article;
       this.callbacks.onArticleChange(article, false);
-    } catch {
+    } catch (error) {
       if (generation !== this.searchGeneration) return;
       this.article = null;
       this.callbacks.onArticleChange(null, false);
-      if (!this.plugin.settings.aiFallbackToLocal) {
-        new Notice(this.plugin.t().searchAiFailed);
-      }
+      new Notice(aiErrorNotice(this.plugin.t().searchAiFailed, error), 10000);
     }
   }
 }

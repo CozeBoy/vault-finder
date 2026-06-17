@@ -23,6 +23,18 @@ export const zhCN: I18nStrings = {
 
   viewAiProvider: '提供商',
   viewAiModel: '模型',
+  aiProviderLabel: (provider) => {
+    switch (provider) {
+      case 'OpenAI':
+        return 'OpenAI';
+      case 'Anthropic':
+        return 'Anthropic';
+      case 'Gemini':
+        return 'Gemini';
+      case 'Compatible':
+        return '兼容模式';
+    }
+  },
   viewSearchScope: '搜索范围',
   viewScopeEntireVault: '全库',
   viewScopeFilterPlaceholder: '筛选文件夹…',
@@ -47,9 +59,41 @@ export const zhCN: I18nStrings = {
   viewExportHtml: '导出 HTML',
   viewExportPdf: '导出 PDF',
   viewExportImage: '导出图片',
-  viewArticleSaveHint: '右键可复制、导出或保存检索综述',
+  viewArticleSaveHint: '使用右上角图标或右键可复制、导出或保存检索综述',
   viewArticleHeading: '检索综述',
   viewSourceHits: '原始命中',
+  viewToggleSourcesShow: '显示文内来源',
+  viewToggleSourcesHide: '隐藏文内来源',
+  viewArticleEdit: '编辑内容',
+  viewArticleEditSave: '保存',
+  viewArticleEditCancel: '取消',
+  viewArticleEditPanelTitle: '编辑检索综述',
+  viewArticleEditMarkdown: 'Markdown',
+  viewArticleEditPreview: '预览',
+  viewArticleOptimize: 'AI 优化内容',
+  viewChatTabSearch: '搜索',
+  viewChatTabOptimize: 'AI 优化',
+  viewOptimizePlaceholder: '描述你希望如何优化这篇综述…',
+  viewOptimizeSubmit: '开始优化',
+  viewOptimizeRunning: '优化中…',
+  viewArticleVersionPrev: '上一版本',
+  viewArticleVersionNext: '下一版本',
+  viewArticleVersionLabel: (current, total) => `版本 ${current}/${total}`,
+  noticeArticleOptimized: '内容已优化',
+  noticeArticleOptimizeFailed: 'AI 优化失败',
+  noticeArticleOptimizeNotEnabled: '请先在设置中启用 AI',
+  noticeArticleOptimizeNoApiKey: '请先在设置中配置 API Key',
+  viewOptimizeShortcuts: '快捷语',
+  viewOptimizeShortcutsEmpty: '暂无快捷语，点击齿轮添加',
+  viewOptimizeShortcutSelectPlaceholder: '选择快捷语…',
+  viewOptimizeShortcutsManage: '管理快捷语',
+  viewOptimizeShortcutInsert: '插入到输入框',
+  viewOptimizeShortcutAdd: '添加快捷语',
+  viewOptimizeShortcutSave: '保存',
+  viewOptimizeShortcutDelete: '删除',
+  viewOptimizeShortcutLabel: '显示名称',
+  viewOptimizeShortcutText: '优化说明',
+  viewOptimizeShortcutNewLabel: '新快捷语',
 
   folderPickerTitle: '选择文件夹',
   folderPickerSelectCurrent: '选择此文件夹',
@@ -131,6 +175,8 @@ export const zhCN: I18nStrings = {
   settingsAiBaseUrl: 'Base URL',
   settingsAiBaseUrlDesc: 'API 接口地址。',
   settingsAiProvider: '提供商',
+  settingsAiProviderDesc:
+    'OpenAI、Anthropic、Gemini 分别走对应原生接口；兼容模式走 /v1/chat/completions。',
   settingsAiModel: '模型',
   settingsAiModelDesc: '当前使用的模型，预设与自定义模型均出现在下拉列表中。',
   settingsAiCustomModels: (provider) => `自定义模型（${provider}）`,

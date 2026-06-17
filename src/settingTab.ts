@@ -1,6 +1,7 @@
 import { PluginSettingTab, Setting } from 'obsidian';
 import type VaultFinderPlugin from './main';
 import {
+  AI_PROVIDERS,
   DEFAULT_SETTINGS,
   defaultKeywordPrompt,
   defaultRelevancePrompt,
@@ -452,11 +453,12 @@ export class VaultFinderSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName(t.settingsAiProvider)
-      .addDropdown((dropdown) =>
+      .setDesc(t.settingsAiProviderDesc)
+      .addDropdown((dropdown) => {
+        for (const provider of AI_PROVIDERS) {
+          dropdown.addOption(provider, t.aiProviderLabel(provider));
+        }
         dropdown
-          .addOption('OpenAI', 'OpenAI')
-          .addOption('Anthropic', 'Anthropic')
-          .addOption('Gemini', 'Gemini')
           .setValue(s.aiProvider)
           .onChange(async (value) => {
             const provider = value as AiProvider;
@@ -467,8 +469,8 @@ export class VaultFinderSettingTab extends PluginSettingTab {
             }
             await this.plugin.saveSettings();
             this.renderSettings();
-          }),
-      );
+          });
+      });
 
     new Setting(containerEl)
       .setName(t.settingsAiModel)
@@ -485,9 +487,9 @@ export class VaultFinderSettingTab extends PluginSettingTab {
         });
       });
 
-    for (const provider of ['OpenAI', 'Anthropic', 'Gemini'] as AiProvider[]) {
+    for (const provider of AI_PROVIDERS) {
       new Setting(containerEl)
-        .setName(t.settingsAiCustomModels(provider))
+        .setName(t.settingsAiCustomModels(t.aiProviderLabel(provider)))
         .setDesc(t.settingsAiCustomModelsDesc)
         .addTextArea((area) => {
           area

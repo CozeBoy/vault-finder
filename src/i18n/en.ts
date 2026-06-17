@@ -23,6 +23,18 @@ export const en: I18nStrings = {
 
   viewAiProvider: 'Provider',
   viewAiModel: 'Model',
+  aiProviderLabel: (provider) => {
+    switch (provider) {
+      case 'OpenAI':
+        return 'OpenAI';
+      case 'Anthropic':
+        return 'Anthropic';
+      case 'Gemini':
+        return 'Gemini';
+      case 'Compatible':
+        return 'Compatible';
+    }
+  },
   viewSearchScope: 'Scope',
   viewScopeEntireVault: 'Entire vault',
   viewScopeFilterPlaceholder: 'Filter folders…',
@@ -47,9 +59,41 @@ export const en: I18nStrings = {
   viewExportHtml: 'Export HTML',
   viewExportPdf: 'Export PDF',
   viewExportImage: 'Export image',
-  viewArticleSaveHint: 'Right-click to copy, export, or save this summary',
+  viewArticleSaveHint: 'Use toolbar icons or right-click to copy, export, or save this summary',
   viewArticleHeading: 'Search summary',
   viewSourceHits: 'Source hits',
+  viewToggleSourcesShow: 'Show in-text sources',
+  viewToggleSourcesHide: 'Hide in-text sources',
+  viewArticleEdit: 'Edit content',
+  viewArticleEditSave: 'Save',
+  viewArticleEditCancel: 'Cancel',
+  viewArticleEditPanelTitle: 'Edit search summary',
+  viewArticleEditMarkdown: 'Markdown',
+  viewArticleEditPreview: 'Preview',
+  viewArticleOptimize: 'Optimize with AI',
+  viewChatTabSearch: 'Search',
+  viewChatTabOptimize: 'AI optimize',
+  viewOptimizePlaceholder: 'Describe how you want to refine this summary…',
+  viewOptimizeSubmit: 'Optimize',
+  viewOptimizeRunning: 'Optimizing…',
+  viewArticleVersionPrev: 'Previous version',
+  viewArticleVersionNext: 'Next version',
+  viewArticleVersionLabel: (current, total) => `Version ${current}/${total}`,
+  noticeArticleOptimized: 'Summary optimized',
+  noticeArticleOptimizeFailed: 'AI optimization failed',
+  noticeArticleOptimizeNotEnabled: 'Enable AI in settings first',
+  noticeArticleOptimizeNoApiKey: 'Configure API key in settings first',
+  viewOptimizeShortcuts: 'Shortcuts',
+  viewOptimizeShortcutsEmpty: 'No shortcuts yet. Click the gear to add some.',
+  viewOptimizeShortcutSelectPlaceholder: 'Choose a shortcut…',
+  viewOptimizeShortcutsManage: 'Manage shortcuts',
+  viewOptimizeShortcutInsert: 'Insert into input',
+  viewOptimizeShortcutAdd: 'Add shortcut',
+  viewOptimizeShortcutSave: 'Save',
+  viewOptimizeShortcutDelete: 'Delete',
+  viewOptimizeShortcutLabel: 'Label',
+  viewOptimizeShortcutText: 'Instruction',
+  viewOptimizeShortcutNewLabel: 'New shortcut',
 
   folderPickerTitle: 'Choose folder',
   folderPickerSelectCurrent: 'Select this folder',
@@ -132,6 +176,8 @@ export const en: I18nStrings = {
   settingsAiBaseUrl: 'Base URL',
   settingsAiBaseUrlDesc: 'API endpoint base URL.',
   settingsAiProvider: 'Provider',
+  settingsAiProviderDesc:
+    'OpenAI, Anthropic, and Gemini use their native APIs. Compatible uses /v1/chat/completions.',
   settingsAiModel: 'Model',
   settingsAiModelDesc: 'Active model. Preset and custom models appear in this list.',
   settingsAiCustomModels: (provider) => `Custom models (${provider})`,
