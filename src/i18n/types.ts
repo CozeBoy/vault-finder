@@ -1,0 +1,169 @@
+export interface I18nStrings {
+  ribbonTooltip: string;
+  ribbonOpenSettings: string;
+  commandOpenSearch: string;
+  commandRebuildIndex: string;
+
+  searchPlaceholder: string;
+  searchNoResults: string;
+  searchNoStrongResults: string;
+  searchWeakResultsCount: (count: number) => string;
+  searchPhaseLocal: string;
+  searchPhaseAiExpand: string;
+  searchPhaseAiFilter: string;
+  searchPhaseAiArticle: string;
+  searchIndexing: string;
+  searchVectorIndexing: string;
+  searchResultsCount: (count: number) => string;
+  searchAiProcessing: string;
+  searchAiFailed: string;
+  searchFiltering: string;
+
+  viewAiProvider: string;
+  viewAiModel: string;
+  viewSearchScope: string;
+  viewScopeEntireVault: string;
+  viewScopeFilterPlaceholder: string;
+  viewScopeLabel: (path: string) => string;
+  viewSearchButton: string;
+  viewStopSearchButton: string;
+  viewTitle: string;
+  viewTabCurrent: string;
+  viewTabHistory: string;
+  viewHistoryEmpty: string;
+  viewHistoryBack: string;
+  viewHistoryMeta: (count: number, date: Date) => string;
+  viewMatchThreshold: string;
+  viewMatchThresholdShort: (percent: number) => string;
+  viewWeakMatchHits: string;
+  viewExactMatch: string;
+  viewSaveArticle: string;
+  viewArticleSaveHint: string;
+  viewArticleHeading: string;
+  viewSourceHits: string;
+
+  folderPickerTitle: string;
+  folderPickerSelectCurrent: string;
+  folderPickerRoot: string;
+  folderPickerEmpty: string;
+
+  settingsGeneral: string;
+  settingsLanguage: string;
+  settingsLanguageDesc: string;
+  settingsLanguageAuto: string;
+  settingsLanguageZh: string;
+  settingsLanguageEn: string;
+  settingsRibbon: string;
+  settingsRibbonDesc: string;
+
+  settingsIndexing: string;
+  settingsExtensions: string;
+  settingsExtensionsDesc: string;
+  settingsExcludePaths: string;
+  settingsExcludePathsDesc: string;
+  settingsMaxFileSize: string;
+  settingsMaxFileSizeDesc: string;
+  settingsKeywordCacheFolder: string;
+  settingsKeywordCacheFolderDesc: string;
+  settingsKeywordCacheFolderPlaceholder: string;
+  settingsKeywordCacheFolderResolved: (path: string) => string;
+  settingsKeywordCacheFolderChoose: string;
+  settingsKeywordCacheFolderReset: string;
+  settingsKeywordCacheFolderOpen: string;
+  settingsRebuildIndex: string;
+  settingsRebuildIndexDesc: string;
+  settingsIndexStatus: string;
+  settingsRefreshIndexStatus: string;
+  settingsIndexStatusValue: (
+    indexed: number,
+    rebuilding: boolean,
+    vectorCount: number,
+    vectorBuilding: boolean,
+  ) => string;
+
+  settingsVector: string;
+  settingsVectorSearch: string;
+  settingsVectorSearchDesc: string;
+  settingsVectorCacheFolder: string;
+  settingsVectorCacheFolderDesc: string;
+  settingsVectorCacheFolderPlaceholder: string;
+  settingsVectorCacheFolderResolved: (path: string) => string;
+  settingsVectorCacheFolderChoose: string;
+  settingsVectorCacheFolderReset: string;
+  settingsVectorCacheFolderOpen: string;
+  settingsVectorBaseUrl: string;
+  settingsVectorBaseUrlDesc: string;
+  settingsVectorApiKey: string;
+  settingsVectorApiKeyDesc: string;
+  settingsEmbeddingModel: string;
+  settingsEmbeddingModelDesc: string;
+  settingsVectorCustomModels: string;
+  settingsVectorCustomModelsDesc: string;
+  settingsVectorEmbedMaxChars: string;
+  settingsVectorEmbedMaxCharsDesc: string;
+  settingsVectorEmbedConcurrency: string;
+  settingsVectorEmbedConcurrencyDesc: string;
+  settingsVectorMinScore: string;
+  settingsVectorMinScoreDesc: string;
+  settingsVectorTimeout: string;
+  settingsVectorTimeoutDesc: string;
+  settingsRebuildVectorIndex: string;
+  settingsRebuildVectorIndexDesc: string;
+
+  settingsAi: string;
+  settingsAiEnabled: string;
+  settingsAiEnabledDesc: string;
+  settingsAiBaseUrl: string;
+  settingsAiBaseUrlDesc: string;
+  settingsAiProvider: string;
+  settingsAiModel: string;
+  settingsAiModelDesc: string;
+  settingsAiCustomModels: (provider: string) => string;
+  settingsAiCustomModelsDesc: string;
+  settingsAiApiKey: string;
+  settingsAiApiKeyDesc: string;
+  settingsAiKeywordPrompt: string;
+  settingsAiKeywordPromptDesc: string;
+  settingsAiResultPrompt: string;
+  settingsAiResultPromptDesc: string;
+  settingsAiRelevancePrompt: string;
+  settingsAiRelevancePromptDesc: string;
+  settingsAiFilterIrrelevant: string;
+  settingsAiFilterIrrelevantDesc: string;
+  settingsAiResetPrompt: string;
+  settingsAiMaxHits: string;
+  settingsAiMaxHitsDesc: string;
+  settingsAiMaxSnippet: string;
+  settingsAiMaxSnippetDesc: string;
+  settingsAiTimeout: string;
+  settingsAiTimeoutDesc: string;
+  settingsAiFallback: string;
+  settingsAiFallbackDesc: string;
+
+  settingsAdvanced: string;
+  settingsDebounce: string;
+  settingsDebounceDesc: string;
+  settingsMaxResults: string;
+  settingsMaxResultsDesc: string;
+  settingsMatchThreshold: string;
+  settingsMatchThresholdDesc: string;
+  settingsShowWeakMatches: string;
+  settingsShowWeakMatchesDesc: string;
+
+  noticeRebuildStarted: string;
+  noticeRebuildDone: string;
+  noticeRebuildFailed: string;
+  noticeRebuildVectorStarted: string;
+  noticeRebuildVectorDone: string;
+  noticeRebuildVectorFailed: string;
+  noticeVectorCacheMigrated: string;
+  noticeKeywordCacheMigrated: string;
+  noticeVectorCacheFolderOpened: string;
+  noticeVectorCacheFolderOpenFailed: string;
+  noticeKeywordCacheFolderOpened: string;
+  noticeKeywordCacheFolderOpenFailed: string;
+  noticeLegacyCacheCleaned: string;
+  noticeArticleSaved: (path: string) => string;
+  noticeArticleSaveFailed: string;
+  mb: string;
+}

@@ -1,0 +1,10 @@
+{
+  "id": "vault-finder",
+  "name": "Vault Finder",
+  "version": "0.1.0",
+  "minAppVersion": "1.6.6",
+  "description": "Fast full-text search for your vault with optional AI-enhanced keyword expansion and results.",
+  "author": "CozeBoy",
+  "authorUrl": "https://github.com/CozeBoy",
+  "isDesktopOnly": true
+}

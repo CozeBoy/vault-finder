@@ -1,0 +1,22 @@
+{
+  "name": "vault-finder",
+  "version": "0.1.0",
+  "description": "Fast full-text search for your Obsidian vault with optional AI enhancement.",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+  },
+  "keywords": ["obsidian", "search", "finder"],
+  "license": "MIT",
+  "dependencies": {
+    "minisearch": "^7.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "esbuild": "0.25.5",
+    "obsidian": "latest",
+    "typescript": "^5.8.3"
+  }
+}
