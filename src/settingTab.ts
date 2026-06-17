@@ -57,7 +57,6 @@ export class VaultFinderSettingTab extends PluginSettingTab {
     }, 2000);
   }
 
-  // eslint-disable-next-line obsidianmd/no-deprecated-api -- minAppVersion 1.6.6; getSettingDefinitions requires 1.13+ (docs §2.2, §3.6).
   display(): void {
     this.renderSettings();
   }

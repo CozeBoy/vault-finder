@@ -54,26 +54,33 @@ export function resolveEmbeddingsUrl(baseUrl: string): string {
   return `${trimmed}/v1/embeddings`;
 }
 
+function isUnknownArray(value: unknown): value is unknown[] {
+  return Array.isArray(value);
+}
+
 function readEmbeddingIndex(item: unknown): number {
   if (typeof item !== 'object' || item === null || !('index' in item)) return 0;
   const index = (item as { index?: unknown }).index;
   return typeof index === 'number' ? index : 0;
 }
 
+function readEmbeddingVector(item: unknown): number[] {
+  if (typeof item !== 'object' || item === null || !('embedding' in item)) return [];
+  const embedding = (item as { embedding?: unknown }).embedding;
+  if (!isUnknownArray(embedding)) return [];
+  return embedding.filter((v): v is number => typeof v === 'number');
+}
+
 function extractEmbeddings(json: unknown): number[][] {
   if (typeof json !== 'object' || json === null) return [];
-  const data = (json as { data?: unknown }).data;
-  if (!Array.isArray(data)) return [];
+  const rawData = (json as { data?: unknown }).data;
+  if (!isUnknownArray(rawData)) return [];
 
-  const sorted = [...data].sort(
+  const sorted = [...rawData].sort(
     (a, b) => readEmbeddingIndex(a) - readEmbeddingIndex(b),
   );
 
-  return sorted.map((item) => {
-    const embedding = (item as { embedding?: unknown }).embedding;
-    if (!Array.isArray(embedding)) return [];
-    return embedding.filter((v): v is number => typeof v === 'number');
-  });
+  return sorted.map(readEmbeddingVector);
 }
 
 async function requestWithTimeout(

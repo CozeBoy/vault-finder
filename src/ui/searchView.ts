@@ -686,8 +686,7 @@ export class SearchView extends ItemView {
         void this.plugin.saveSettings();
       },
       renderMarkdownHtml: async (md) => {
-        const doc = window.activeDocument ?? document;
-        const div = doc.createElement('div');
+        const div = window.activeDocument.createElement('div');
         div.className = 'vault-finder-article-body markdown-rendered';
         await MarkdownRenderer.render(this.app, md, div, '', this);
         return Array.from(div.childNodes)

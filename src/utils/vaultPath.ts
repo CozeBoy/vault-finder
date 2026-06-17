@@ -185,7 +185,7 @@ export function expandSourcePathsInMarkdown(
 }
 
 function getActiveDocument(): Document {
-  return window.activeDocument ?? document;
+  return window.activeDocument;
 }
 
 function htmlToElementContainer(html: string): HTMLElement {
