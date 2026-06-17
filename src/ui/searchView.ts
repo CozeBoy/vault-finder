@@ -204,6 +204,11 @@ export class SearchView extends ItemView {
       },
       onSearchingChange: (searching) => this.updateSendButton(searching),
       onHistoryChange: () => this.refreshHistoryList(),
+      getHistoryArticleSnapshot: () => ({
+        article: this.getCurrentArticleMarkdown() || null,
+        articleVersions: [...this.articleVersions],
+        articleVersionIndex: this.articleVersionIndex,
+      }),
     });
 
     this.inputEl.focus();
@@ -537,6 +542,37 @@ export class SearchView extends ItemView {
     }
 
     this.syncControllerToCurrentVersion();
+    void this.syncHistoryArticleSnapshot();
+  }
+
+  private async syncHistoryArticleSnapshot(): Promise<void> {
+    if (this.activeTab !== 'current') return;
+    const query = this.inputEl?.value.trim() ?? '';
+    if (!query) return;
+    await this.plugin.searchHistory.updateLatestSnapshot(query, {
+      article: this.getCurrentArticleMarkdown() || null,
+      articleVersions: [...this.articleVersions],
+      articleVersionIndex: this.articleVersionIndex,
+    });
+  }
+
+  private restoreArticleVersionsFromHistory(entry: SearchHistoryEntry): void {
+    const versions = entry.articleVersions.filter((v) => v.trim());
+    if (versions.length > 0) {
+      this.articleVersions = versions;
+      this.articleVersionIndex = Math.min(
+        Math.max(entry.articleVersionIndex, 0),
+        versions.length - 1,
+      );
+      return;
+    }
+    if (entry.article?.trim()) {
+      this.articleVersions = [entry.article];
+      this.articleVersionIndex = 0;
+      return;
+    }
+    this.articleVersions = [];
+    this.articleVersionIndex = 0;
   }
 
   private async renderArticle(markdown: string | null, loading: boolean): Promise<void> {
@@ -779,6 +815,7 @@ export class SearchView extends ItemView {
     this.syncControllerToCurrentVersion();
     await this.renderArticleChrome(host, markdown);
     this.updateArticleVersionNavDisplay();
+    void this.syncHistoryArticleSnapshot();
   }
 
   private getActiveArticleHost(): HTMLElement | null {
@@ -1004,16 +1041,16 @@ export class SearchView extends ItemView {
 
     this.controller.applyMatchSplit(entry.hits.map((hit) => ({ ...hit })));
     this.controller.selectedIndex = -1;
-    this.controller.article = entry.article;
-    this.articleVersions = entry.article?.trim() ? [entry.article] : [];
-    this.articleVersionIndex = 0;
+    this.restoreArticleVersionsFromHistory(entry);
+    this.controller.article = this.getCurrentArticleMarkdown();
     this.showArticleSources = true;
     this.articleEditing = false;
     this.historyArticleEditor?.close();
     this.setArticleEditLayout(false);
 
-    if (entry.article?.trim()) {
-      void this.renderArticleInto(articleHost, entry.article);
+    const markdown = this.getCurrentArticleMarkdown();
+    if (markdown) {
+      void this.renderArticleInto(articleHost, markdown);
     } else {
       articleHost.remove();
       this.renderResults();

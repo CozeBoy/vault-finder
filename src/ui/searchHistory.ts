@@ -7,6 +7,14 @@ export interface SearchHistoryEntry {
   timestamp: number;
   hits: SearchHit[];
   article: string | null;
+  articleVersions: string[];
+  articleVersionIndex: number;
+}
+
+export interface SearchHistoryArticleSnapshot {
+  article: string | null;
+  articleVersions: string[];
+  articleVersionIndex: number;
 }
 
 export const MAX_SEARCH_HISTORY = 50;
@@ -16,15 +24,39 @@ export function createHistoryEntry(
   scopePath: string,
   hits: SearchHit[],
   article: string | null,
+  snapshot?: Partial<SearchHistoryArticleSnapshot>,
 ): SearchHistoryEntry {
+  const versions = normalizeArticleVersions(snapshot?.articleVersions, article);
+  const versionIndex = clampVersionIndex(snapshot?.articleVersionIndex, versions.length);
+  const resolvedArticle = versions[versionIndex] ?? article?.trim() ?? null;
+
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     query,
     scopePath,
     timestamp: Date.now(),
     hits: hits.map((hit) => ({ ...hit })),
-    article,
+    article: resolvedArticle,
+    articleVersions: versions,
+    articleVersionIndex: versionIndex,
   };
+}
+
+function normalizeArticleVersions(versions: string[] | undefined, article: string | null): string[] {
+  const result: string[] = [];
+  for (const raw of versions ?? []) {
+    const trimmed = raw.trim();
+    if (trimmed) result.push(trimmed);
+  }
+  if (result.length > 0) return result;
+  const fallback = article?.trim();
+  return fallback ? [fallback] : [];
+}
+
+function clampVersionIndex(index: number | undefined, length: number): number {
+  if (length <= 0) return 0;
+  if (typeof index !== 'number' || Number.isNaN(index)) return length - 1;
+  return Math.min(Math.max(Math.round(index), 0), length - 1);
 }
 
 export function normalizeSearchHistory(data: unknown): SearchHistoryEntry[] {
@@ -49,13 +81,26 @@ export function normalizeSearchHistory(data: unknown): SearchHistoryEntry[] {
         exactMatch: h.exactMatch === true,
       });
     }
+    const article = typeof record.article === 'string' ? record.article : null;
+    const articleVersions = normalizeArticleVersions(
+      Array.isArray(record.articleVersions)
+        ? record.articleVersions.filter((v): v is string => typeof v === 'string')
+        : undefined,
+      article,
+    );
+    const articleVersionIndex = clampVersionIndex(
+      typeof record.articleVersionIndex === 'number' ? record.articleVersionIndex : undefined,
+      articleVersions.length,
+    );
     result.push({
       id: record.id,
       query: record.query,
       scopePath: typeof record.scopePath === 'string' ? record.scopePath : '',
       timestamp: typeof record.timestamp === 'number' ? record.timestamp : Date.now(),
       hits,
-      article: typeof record.article === 'string' ? record.article : null,
+      article: articleVersions[articleVersionIndex] ?? article,
+      articleVersions,
+      articleVersionIndex,
     });
   }
   return result;
@@ -80,6 +125,21 @@ export class SearchHistoryStore {
       0,
       MAX_SEARCH_HISTORY,
     );
+    await this.persist();
+  }
+
+  async updateLatestSnapshot(
+    query: string,
+    snapshot: SearchHistoryArticleSnapshot,
+  ): Promise<void> {
+    const latest = this.entries[0];
+    if (!latest || latest.query !== query) return;
+
+    const versions = normalizeArticleVersions(snapshot.articleVersions, snapshot.article);
+    const versionIndex = clampVersionIndex(snapshot.articleVersionIndex, versions.length);
+    latest.articleVersions = versions;
+    latest.articleVersionIndex = versionIndex;
+    latest.article = versions[versionIndex] ?? snapshot.article?.trim() ?? null;
     await this.persist();
   }
 

@@ -3,7 +3,7 @@ import { aiErrorNotice } from '../ai/apiErrors';
 import { computeMatchPercents, splitHitsByThreshold } from '../index/matchScore';
 import type { SearchHit } from '../index/types';
 import type VaultFinderPlugin from '../main';
-import { createHistoryEntry, type SearchHistoryEntry } from './searchHistory';
+import { createHistoryEntry, type SearchHistoryArticleSnapshot, type SearchHistoryEntry } from './searchHistory';
 
 export type SearchPhase = 'idle' | 'local' | 'ai-expand' | 'ai-filter' | 'ai-article';
 
@@ -15,6 +15,7 @@ export interface SearchPanelCallbacks {
   onHistoryChange?: () => void;
   getQuery: () => string;
   getSearchScope: () => string;
+  getHistoryArticleSnapshot?: () => SearchHistoryArticleSnapshot;
 }
 
 export class SearchController {
@@ -171,7 +172,13 @@ export class SearchController {
       if (generation !== this.searchGeneration) return;
 
       await this.plugin.searchHistory.add(
-        createHistoryEntry(query, scopePath, combinedHits, this.article),
+        createHistoryEntry(
+          query,
+          scopePath,
+          combinedHits,
+          this.article,
+          this.callbacks.getHistoryArticleSnapshot?.(),
+        ),
       );
       this.callbacks.onHistoryChange?.();
     } finally {
