@@ -1,6 +1,6 @@
 {
   "name": "vault-finder",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Fast full-text search for your Obsidian vault with optional AI enhancement.",
   "main": "main.js",
   "type": "module",

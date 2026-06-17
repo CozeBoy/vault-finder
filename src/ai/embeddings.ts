@@ -60,8 +60,14 @@ function extractEmbeddings(json: unknown): number[][] {
   if (!Array.isArray(data)) return [];
 
   const sorted = [...data].sort((a, b) => {
-    const ai = (a as { index?: number }).index ?? 0;
-    const bi = (b as { index?: number }).index ?? 0;
+    const ai =
+      typeof a === 'object' && a !== null && 'index' in a && typeof a.index === 'number'
+        ? a.index
+        : 0;
+    const bi =
+      typeof b === 'object' && b !== null && 'index' in b && typeof b.index === 'number'
+        ? b.index
+        : 0;
     return ai - bi;
   });
 
@@ -78,15 +84,15 @@ async function requestWithTimeout(
 ): Promise<Awaited<ReturnType<typeof requestUrl>>> {
   if (timeoutMs <= 0) return requestUrl(params);
 
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timer: number | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('Embedding request timeout')), timeoutMs);
+    timer = window.setTimeout(() => reject(new Error('Embedding request timeout')), timeoutMs);
   });
 
   try {
     return await Promise.race([requestUrl(params), timeoutPromise]);
   } finally {
-    if (timer !== undefined) clearTimeout(timer);
+    if (timer !== undefined) window.clearTimeout(timer);
   }
 }
 

@@ -31,15 +31,15 @@ export class VaultIndex {
   private miniSearch: MiniSearch<IndexDoc>;
   private docStore = new Map<string, IndexDoc>();
   private vectorIndex = new VectorIndex();
-  private modifyTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private modifyTimers = new Map<string, number>();
   private isRebuilding = false;
   private isVectorBuilding = false;
   private lastUpdated: number | null = null;
   private settings: VaultFinderSettings;
   private loadData: () => Promise<unknown>;
   private saveData: (data: unknown) => Promise<void>;
-  private persistTimer: ReturnType<typeof setTimeout> | null = null;
-  private vectorPersistTimer: ReturnType<typeof setTimeout> | null = null;
+  private persistTimer: number | null = null;
+  private vectorPersistTimer: number | null = null;
   private runtimeEmbedConcurrency: number | null = null;
   private consecutiveEmbedFailureWaves = 0;
   private embedFailureWavesAtMinConcurrency = 0;
@@ -233,8 +233,8 @@ export class VaultIndex {
 
   scheduleFileUpdate(file: TFile): void {
     const existing = this.modifyTimers.get(file.path);
-    if (existing) clearTimeout(existing);
-    const timer = setTimeout(() => {
+    if (existing) window.clearTimeout(existing);
+    const timer = window.setTimeout(() => {
       this.modifyTimers.delete(file.path);
       void this.handleFileChange(file);
     }, MODIFY_DEBOUNCE_MS);
@@ -244,7 +244,7 @@ export class VaultIndex {
   removeFile(path: string): void {
     const timer = this.modifyTimers.get(path);
     if (timer) {
-      clearTimeout(timer);
+      window.clearTimeout(timer);
       this.modifyTimers.delete(path);
     }
     this.docStore.delete(path);
@@ -269,11 +269,11 @@ export class VaultIndex {
 
   dispose(): void {
     for (const timer of this.modifyTimers.values()) {
-      clearTimeout(timer);
+      window.clearTimeout(timer);
     }
     this.modifyTimers.clear();
-    if (this.persistTimer) clearTimeout(this.persistTimer);
-    if (this.vectorPersistTimer) clearTimeout(this.vectorPersistTimer);
+    if (this.persistTimer) window.clearTimeout(this.persistTimer);
+    if (this.vectorPersistTimer) window.clearTimeout(this.vectorPersistTimer);
   }
 
   settingsFingerprintChanged(prev: VaultFinderSettings): boolean {
@@ -731,7 +731,7 @@ export class VaultIndex {
     const current = this.getEffectiveEmbedConcurrency();
     if (current >= configured) return;
     const ms = Math.min(10000, Math.round((1000 * configured) / current));
-    await new Promise((resolve) => setTimeout(resolve, ms));
+    await new Promise((resolve) => window.setTimeout(resolve, ms));
   }
 
   private getIndexableFiles(): TFile[] {
@@ -742,7 +742,7 @@ export class VaultIndex {
     const ext = file.extension.toLowerCase();
     if (!this.settings.indexableExtensions.includes(ext)) return false;
     if (file.stat.size > this.settings.maxFileSizeBytes) return false;
-    if (file.path.startsWith('.obsidian/')) return false;
+    if (file.path.startsWith(`${this.app.vault.configDir}/`)) return false;
     for (const prefix of this.settings.excludePaths) {
       const trimmed = prefix.trim();
       if (trimmed && file.path.startsWith(trimmed)) return false;
@@ -862,16 +862,16 @@ export class VaultIndex {
   }
 
   private schedulePersist(): void {
-    if (this.persistTimer) clearTimeout(this.persistTimer);
-    this.persistTimer = setTimeout(() => {
+    if (this.persistTimer) window.clearTimeout(this.persistTimer);
+    this.persistTimer = window.setTimeout(() => {
       this.persistTimer = null;
       void this.flushPersist();
     }, 1000);
   }
 
   private scheduleVectorPersist(): void {
-    if (this.vectorPersistTimer) clearTimeout(this.vectorPersistTimer);
-    this.vectorPersistTimer = setTimeout(() => {
+    if (this.vectorPersistTimer) window.clearTimeout(this.vectorPersistTimer);
+    this.vectorPersistTimer = window.setTimeout(() => {
       this.vectorPersistTimer = null;
       void this.flushVectorPersist();
     }, 2000);

@@ -90,7 +90,10 @@ export class SearchHistoryStore {
 
   private async persist(): Promise<void> {
     const data: unknown = await this.loadData();
-    const base = typeof data === 'object' && data !== null ? { ...(data as object) } : {};
+    const base: Record<string, unknown> =
+      typeof data === 'object' && data !== null
+        ? { ...(data as Record<string, unknown>) }
+        : {};
     await this.saveData({ ...base, searchHistory: this.entries });
   }
 }

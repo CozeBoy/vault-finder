@@ -17,11 +17,11 @@ export function getVaultBasePath(app: App): string | null {
 export function getPluginDir(app: App, pluginId: string): string | null {
   const base = getVaultBasePath(app);
   if (!base) return null;
-  return path.join(base, '.obsidian', 'plugins', pluginId);
+  return path.join(base, app.vault.configDir, 'plugins', pluginId);
 }
 
-export function defaultVectorCacheFolderSetting(pluginId: string): string {
-  return `.obsidian/plugins/${pluginId}/${PLUGIN_VECTOR_CACHE_DIR_NAME}`;
+export function defaultVectorCacheFolderSetting(app: App, pluginId: string): string {
+  return `${app.vault.configDir}/plugins/${pluginId}/${PLUGIN_VECTOR_CACHE_DIR_NAME}`;
 }
 
 export function resolveVectorCacheDir(
@@ -52,7 +52,7 @@ export function formatVectorCacheFolderDisplay(
   if (resolved) return resolved;
   const custom = folderSetting.trim();
   if (custom) return custom;
-  return defaultVectorCacheFolderSetting(pluginId);
+  return defaultVectorCacheFolderSetting(app, pluginId);
 }
 
 export function ensureVectorCacheDir(
@@ -72,7 +72,7 @@ export function ensureVectorCacheDir(
 
 export async function openPathInFileManager(folderPath: string): Promise<boolean> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron shell is desktop-only; no Obsidian API for opening folders in the file manager.
     const { shell } = require('electron') as {
       shell: { openPath: (targetPath: string) => Promise<string> };
     };
@@ -86,7 +86,9 @@ export async function openPathInFileManager(folderPath: string): Promise<boolean
 export function stripLegacyPluginCachesFromRecord(
   data: Record<string, unknown>,
 ): Record<string, unknown> {
-  const { vectorCache: _v, indexCache: _i, ...rest } = data;
+  const rest = { ...data };
+  delete rest.vectorCache;
+  delete rest.indexCache;
   return rest;
 }
 

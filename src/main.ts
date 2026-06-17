@@ -124,7 +124,7 @@ export default class VaultFinderPlugin extends Plugin {
       await rightLeaf.setViewState({ type: VAULT_FINDER_VIEW_TYPE, active: true });
       leaf = rightLeaf;
     } else {
-      workspace.revealLeaf(leaf);
+      workspace.setActiveLeaf(leaf, { focus: true });
     }
     const view = leaf.view;
     if (view instanceof SearchView) {
@@ -229,7 +229,8 @@ export default class VaultFinderPlugin extends Plugin {
         this.savedKeywordCacheFolder = this.settings.keywordCacheFolder;
         return;
       }
-      const { indexCache: _, ...rest } = record;
+      const rest = { ...record };
+      delete rest.indexCache;
       if (isPartialSettings(rest)) {
         this.settings = this.mergeSettings(rest);
       }

@@ -3,7 +3,7 @@ import { Notice, type App } from 'obsidian';
 export function sanitizeNoteBasename(name: string): string {
   const trimmed = name.trim().slice(0, 80);
   const cleaned = trimmed
-    .replace(/[\\/:*?"<>|#^\[\]]/g, '-')
+    .replace(/[\\/:*?"<>|#^[\]]/g, '-')
     .replace(/\s+/g, ' ')
     .replace(/^\.+/, '')
     .trim();

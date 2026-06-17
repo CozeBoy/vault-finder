@@ -144,7 +144,7 @@ export class SearchView extends ItemView {
           void this.controller.submitSearch();
         }
       } else if (evt.key === 'ArrowDown' && evt.metaKey === false && evt.ctrlKey === false) {
-        if (document.activeElement === this.inputEl && this.controller.hits.length > 0) {
+        if (window.activeDocument.activeElement === this.inputEl && this.controller.allHits().length > 0) {
           evt.preventDefault();
           this.controller.moveSelection(1);
           this.scrollToSelected();
@@ -254,10 +254,10 @@ export class SearchView extends ItemView {
   }
 
   private updateFooterInset(): void {
-    const footer = this.currentPanelEl?.querySelector('.vault-finder-footer') as HTMLElement | null;
-    if (!footer) return;
-    const statusBar = window.activeDocument.querySelector('.status-bar') as HTMLElement | null;
-    const inset = statusBar?.offsetHeight ?? 22;
+    const footer = this.currentPanelEl?.querySelector('.vault-finder-footer');
+    if (!(footer instanceof HTMLElement)) return;
+    const statusBar = window.activeDocument.querySelector('.status-bar');
+    const inset = statusBar instanceof HTMLElement ? statusBar.offsetHeight : 22;
     footer.style.setProperty('--vault-finder-footer-inset', `${inset}px`);
   }
 
@@ -318,7 +318,8 @@ export class SearchView extends ItemView {
         max: '100',
         step: '1',
       },
-    }) as HTMLInputElement;
+    });
+    if (!(slider instanceof HTMLInputElement)) return;
     slider.value = String(this.plugin.settings.searchMatchThreshold);
 
     slider.addEventListener('input', () => {
@@ -332,7 +333,7 @@ export class SearchView extends ItemView {
       slider.value = String(value);
       valueEl.setText(`${value}%`);
       void this.plugin.saveSettings();
-      if (this.inputEl.value.trim() && this.controller.hits.length > 0) {
+      if (this.inputEl.value.trim() && this.controller.allHits().length > 0) {
         const all = [...this.controller.primaryHits, ...this.controller.weakHits];
         this.controller.applyMatchSplit(all);
         this.renderResults();
@@ -379,7 +380,7 @@ export class SearchView extends ItemView {
     const body = targetArticleEl.createEl('div', {
       cls: 'vault-finder-article-body markdown-rendered',
     });
-    await MarkdownRenderer.renderMarkdown(markdown, body, '', this);
+    await MarkdownRenderer.render(this.app, markdown, body, '', this);
 
     attachInternalLinkHandler(body, this.app, (el, type, handler) => {
       this.registerDomEvent(el, type, handler);
@@ -535,7 +536,7 @@ export class SearchView extends ItemView {
     });
 
     const articleHost = this.historyDetailEl.createEl('div', { cls: 'vault-finder-history-article vault-finder-article' });
-    const resultsHost = this.historyDetailEl.createEl('div', { cls: 'vault-finder-history-results vault-finder-results' });
+    this.historyDetailEl.createEl('div', { cls: 'vault-finder-history-results vault-finder-results' });
 
     this.controller.applyMatchSplit(entry.hits.map((hit) => ({ ...hit })));
     this.controller.selectedIndex = -1;
@@ -554,7 +555,7 @@ export class SearchView extends ItemView {
     host.setAttr('title', this.plugin.t().viewArticleSaveHint);
     this.attachArticleContextMenu(host, () => markdown);
     const body = host.createEl('div', { cls: 'vault-finder-article-body markdown-rendered' });
-    await MarkdownRenderer.renderMarkdown(markdown, body, '', this);
+    await MarkdownRenderer.render(this.app, markdown, body, '', this);
     attachInternalLinkHandler(body, this.app, (el, type, handler) => {
       this.registerDomEvent(el, type, handler);
     });

@@ -244,14 +244,14 @@ async function requestWithTimeout(
 ): Promise<RequestUrlResponse> {
   if (timeoutMs <= 0) return requestUrl(params);
 
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timer: number | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('Request timeout')), timeoutMs);
+    timer = window.setTimeout(() => reject(new Error('Request timeout')), timeoutMs);
   });
 
   try {
     return await Promise.race([requestUrl(params), timeoutPromise]);
   } finally {
-    if (timer !== undefined) clearTimeout(timer);
+    if (timer !== undefined) window.clearTimeout(timer);
   }
 }

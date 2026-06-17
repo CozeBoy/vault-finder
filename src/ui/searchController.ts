@@ -19,8 +19,6 @@ export interface SearchPanelCallbacks {
 export class SearchController {
   primaryHits: SearchHit[] = [];
   weakHits: SearchHit[] = [];
-  /** @deprecated Use primaryHits + weakHits */
-  hits: SearchHit[] = [];
   article: string | null = null;
   selectedIndex = -1;
   isSearching = false;
@@ -31,6 +29,10 @@ export class SearchController {
     private plugin: VaultFinderPlugin,
     private callbacks: SearchPanelCallbacks,
   ) {}
+
+  allHits(): SearchHit[] {
+    return [...this.primaryHits, ...this.weakHits];
+  }
 
   dispose(): void {
     this.cancelSearch();
@@ -67,7 +69,6 @@ export class SearchController {
     const { primary, weak } = splitHitsByThreshold(rawHits, threshold);
     this.primaryHits = primary;
     this.weakHits = this.plugin.settings.showWeakMatchResults ? weak : [];
-    this.hits = [...this.primaryHits, ...this.weakHits];
   }
 
   async runSearch(): Promise<void> {
@@ -78,7 +79,6 @@ export class SearchController {
     this.article = null;
     this.primaryHits = [];
     this.weakHits = [];
-    this.hits = [];
     this.callbacks.onArticleChange(null, false);
 
     if (!query) {
@@ -161,15 +161,16 @@ export class SearchController {
       this.callbacks.onHitsChange();
       this.callbacks.onStatusChange();
 
-      if (this.plugin.isAiActive() && this.hits.length > 0) {
+      const combinedHits = this.allHits();
+      if (this.plugin.isAiActive() && combinedHits.length > 0) {
         this.setPhase('ai-article');
-        await this.runAiArticle(query, this.hits, generation);
+        await this.runAiArticle(query, combinedHits, generation);
       }
 
       if (generation !== this.searchGeneration) return;
 
       await this.plugin.searchHistory.add(
-        createHistoryEntry(query, scopePath, this.hits, this.article),
+        createHistoryEntry(query, scopePath, combinedHits, this.article),
       );
       this.callbacks.onHistoryChange?.();
     } finally {
@@ -182,17 +183,19 @@ export class SearchController {
   }
 
   moveSelection(delta: number): void {
-    if (this.hits.length === 0) return;
+    const hits = this.allHits();
+    if (hits.length === 0) return;
     if (this.selectedIndex < 0) {
-      this.selectedIndex = delta > 0 ? 0 : this.hits.length - 1;
+      this.selectedIndex = delta > 0 ? 0 : hits.length - 1;
     } else {
-      this.selectedIndex = (this.selectedIndex + delta + this.hits.length) % this.hits.length;
+      this.selectedIndex = (this.selectedIndex + delta + hits.length) % hits.length;
     }
     this.callbacks.onHitsChange();
   }
 
   getSelectedHit(): SearchHit | undefined {
-    return this.hits[this.selectedIndex] ?? this.hits[0];
+    const hits = this.allHits();
+    return hits[this.selectedIndex] ?? hits[0];
   }
 
   private setSearching(searching: boolean): void {

@@ -99,7 +99,6 @@ export class VaultFinderSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).setName(t.settingsIndexing).setHeading();
 
-    const status = this.plugin.index.getStatus();
     this.indexStatusSetting = new Setting(containerEl)
       .setName(t.settingsIndexStatus)
       .setDesc(this.formatIndexStatus())

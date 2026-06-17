@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { FileSystemAdapter, type App } from 'obsidian';
+import { type App } from 'obsidian';
 import type { SerializedIndex } from './types';
 import { getPluginDir, getVaultBasePath, openPathInFileManager } from './vectorCacheStorage';
 
@@ -9,8 +9,8 @@ export const PLUGIN_KEYWORD_CACHE_DIR_NAME = 'keyword-cache';
 
 export { openPathInFileManager };
 
-export function defaultKeywordCacheFolderSetting(pluginId: string): string {
-  return `.obsidian/plugins/${pluginId}/${PLUGIN_KEYWORD_CACHE_DIR_NAME}`;
+export function defaultKeywordCacheFolderSetting(app: App, pluginId: string): string {
+  return `${app.vault.configDir}/plugins/${pluginId}/${PLUGIN_KEYWORD_CACHE_DIR_NAME}`;
 }
 
 export function resolveKeywordCacheDir(
@@ -41,7 +41,7 @@ export function formatKeywordCacheFolderDisplay(
   if (resolved) return resolved;
   const custom = folderSetting.trim();
   if (custom) return custom;
-  return defaultKeywordCacheFolderSetting(pluginId);
+  return defaultKeywordCacheFolderSetting(app, pluginId);
 }
 
 export function ensureKeywordCacheDir(
