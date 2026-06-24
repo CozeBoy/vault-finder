@@ -42,6 +42,8 @@ export class SearchView extends ItemView {
   private providerLabelEl!: HTMLElement;
   private modelLabelEl!: HTMLElement;
   private thresholdLabelEl!: HTMLElement;
+  private fullDocumentToggleLabelEl!: HTMLElement;
+  private fullDocumentToggleEl!: HTMLInputElement;
   private tabCurrentBtn!: HTMLButtonElement;
   private tabHistoryBtn!: HTMLButtonElement;
   private footerEl!: HTMLElement;
@@ -145,6 +147,7 @@ export class SearchView extends ItemView {
     this.buildModelSelect(controls, t);
     this.buildScopeSelect(controls, t);
     this.buildMatchThresholdControl(controls, t);
+    this.buildFullDocumentToggle(controls, t);
 
     const inputWrap = this.searchChatPane.createEl('div', { cls: 'vault-finder-input-wrap' });
     this.inputEl = inputWrap.createEl('textarea', {
@@ -279,6 +282,7 @@ export class SearchView extends ItemView {
     this.providerLabelEl.setText(t.viewAiProvider);
     this.modelLabelEl.setText(t.viewAiModel);
     this.thresholdLabelEl.setText(t.viewMatchThreshold);
+    this.fullDocumentToggleLabelEl.setText(t.viewChatSendFullDocument);
     this.scopePicker.updateLocale({
       label: t.viewSearchScope,
       entireVaultLabel: t.viewScopeEntireVault,
@@ -457,6 +461,28 @@ export class SearchView extends ItemView {
         this.renderResults();
         this.updateStatus();
       }
+    });
+  }
+
+  private buildFullDocumentToggle(
+    parent: HTMLElement,
+    t: ReturnType<VaultFinderPlugin['t']>,
+  ): void {
+    const wrap = parent.createEl('div', { cls: 'vault-finder-control vault-finder-control-toggle' });
+    this.fullDocumentToggleLabelEl = wrap.createEl('span', {
+      text: t.viewChatSendFullDocument,
+      cls: 'vault-finder-label',
+    });
+    const label = wrap.createEl('label', { cls: 'vault-finder-switch' });
+    this.fullDocumentToggleEl = label.createEl('input', {
+      attr: { type: 'checkbox' },
+      cls: 'vault-finder-switch-input',
+    });
+    label.createEl('span', { cls: 'vault-finder-switch-track' });
+    this.fullDocumentToggleEl.checked = this.plugin.settings.aiIncludeFullDocument;
+    this.fullDocumentToggleEl.addEventListener('change', () => {
+      this.plugin.settings.aiIncludeFullDocument = this.fullDocumentToggleEl.checked;
+      void this.plugin.saveSettings();
     });
   }
 

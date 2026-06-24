@@ -39,6 +39,7 @@ With AI and vector search disabled, or without API keys configured, the plugin p
 ```bash
 npm install
 npm run dev
+npm run build
 ```
 
 Symlink or copy the project folder to `.obsidian/plugins/vault-finder/` (folder name must match plugin id).

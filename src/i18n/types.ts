@@ -61,6 +61,7 @@ export interface I18nStrings {
   viewArticleOptimize: string;
   viewChatTabSearch: string;
   viewChatTabOptimize: string;
+  viewChatSendFullDocument: string;
   viewOptimizePlaceholder: string;
   viewOptimizeSubmit: string;
   viewOptimizeRunning: string;
@@ -180,6 +181,10 @@ export interface I18nStrings {
   settingsAiMaxHitsDesc: string;
   settingsAiMaxSnippet: string;
   settingsAiMaxSnippetDesc: string;
+  settingsAiIncludeFullDocument: string;
+  settingsAiIncludeFullDocumentDesc: string;
+  settingsAiMaxDocumentChars: string;
+  settingsAiMaxDocumentCharsDesc: string;
   settingsAiTimeout: string;
   settingsAiTimeoutDesc: string;
   settingsAiFallback: string;

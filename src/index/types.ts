@@ -13,6 +13,8 @@ export interface SearchHit {
   matchPercent?: number;
   /** Document contains the query as an exact phrase in title or body */
   exactMatch?: boolean;
+  /** Full document body, populated when caller opts in (e.g. for AI optimization). */
+  body?: string;
 }
 
 export interface IndexStatus {

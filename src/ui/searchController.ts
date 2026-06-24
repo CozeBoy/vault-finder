@@ -225,7 +225,8 @@ export class SearchController {
   ): Promise<void> {
     this.callbacks.onArticleChange(null, true);
     try {
-      const article = await this.plugin.aiService.optimizeResults(query, hits);
+      const enriched = this.enrichHitsForAi(hits);
+      const article = await this.plugin.aiService.optimizeResults(query, enriched);
       if (generation !== this.searchGeneration) return;
       this.article = article;
       this.callbacks.onArticleChange(article, false);
@@ -235,5 +236,16 @@ export class SearchController {
       this.callbacks.onArticleChange(null, false);
       new Notice(aiErrorNotice(this.plugin.t().searchAiFailed, error), 10000);
     }
+  }
+
+  private enrichHitsForAi(hits: SearchHit[]): SearchHit[] {
+    const settings = this.plugin.settings;
+    if (!settings.aiIncludeFullDocument) return hits;
+    const cap = Math.max(50, settings.aiMaxDocumentChars);
+    return hits.map((hit) => {
+      if (hit.body) return hit;
+      const full = this.plugin.index.getDocumentBody(hit.path);
+      return { ...hit, body: full.length > cap ? full.slice(0, cap) : full };
+    });
   }
 }

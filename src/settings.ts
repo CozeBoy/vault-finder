@@ -38,6 +38,10 @@ export interface VaultFinderSettings {
   aiTimeoutMs: number;
   aiFallbackToLocal: boolean;
   aiCustomModels: Record<AiProvider, string[]>;
+  /** Send the matched document's full body to the AI (instead of just snippet) for result optimization. */
+  aiIncludeFullDocument: boolean;
+  /** Per-document character cap when sending full body to AI. */
+  aiMaxDocumentChars: number;
 
   vectorSearchEnabled: boolean;
   vectorBaseUrl: string;
@@ -347,6 +351,8 @@ export const DEFAULT_SETTINGS: VaultFinderSettings = {
   aiMaxSnippetChars: 500,
   aiTimeoutMs: 600000,
   aiFallbackToLocal: true,
+  aiIncludeFullDocument: true,
+  aiMaxDocumentChars: 8000,
   aiCustomModels: {
     OpenAI: [],
     Anthropic: [],

@@ -39,6 +39,7 @@
 ```bash
 npm install
 npm run dev
+npm run build
 ```
 
 将项目目录链接或复制到 `.obsidian/plugins/vault-finder/`（文件夹名须与插件 id 一致）。

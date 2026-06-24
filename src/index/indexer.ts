@@ -349,7 +349,7 @@ export class VaultIndex {
     return this.mergeWithExactPriority('', lists);
   }
 
-  private getDocumentBody(path: string): string {
+  getDocumentBody(path: string): string {
     const cached = this.docStore.get(path);
     if (cached?.body) return cached.body;
 

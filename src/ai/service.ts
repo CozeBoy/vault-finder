@@ -32,10 +32,16 @@ export class AiService {
   async optimizeResults(query: string, hits: SearchHit[]): Promise<string> {
     const settings = this.getSettings();
     const limited = hits.slice(0, settings.aiMaxHitsForPrompt);
+    const docCap = Math.max(50, settings.aiMaxDocumentChars);
     const payload = limited
       .map((hit, i) => {
+        const body = hit.body?.trim() ?? '';
+        if (body.length > 0) {
+          const truncated = body.length > docCap ? `${body.slice(0, docCap)}…` : body;
+          return `${i + 1}. 路径: ${hit.path}\n标题: ${hit.title}\n正文: ${truncated}`;
+        }
         const snippet = hit.snippet.slice(0, settings.aiMaxSnippetChars);
-        return `${i + 1}. 路径: ${hit.path}\n片段: ${snippet}`;
+        return `${i + 1}. 路径: ${hit.path}\n标题: ${hit.title}\n片段: ${snippet}`;
       })
       .join('\n\n');
 

@@ -593,6 +593,28 @@ export class VaultFinderSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName(t.settingsAiIncludeFullDocument)
+      .setDesc(t.settingsAiIncludeFullDocumentDesc)
+      .addToggle((toggle) =>
+        toggle.setValue(s.aiIncludeFullDocument).onChange(async (value) => {
+          this.plugin.settings.aiIncludeFullDocument = value;
+          await this.plugin.saveSettings();
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName(t.settingsAiMaxDocumentChars)
+      .setDesc(t.settingsAiMaxDocumentCharsDesc)
+      .addText((text) =>
+        text.setValue(String(s.aiMaxDocumentChars)).onChange(async (value) => {
+          const n = Number.parseInt(value, 10);
+          if (Number.isNaN(n) || n < 200) return;
+          this.plugin.settings.aiMaxDocumentChars = n;
+          await this.plugin.saveSettings();
+        }),
+      );
+
+    new Setting(containerEl)
       .setName(t.settingsAiTimeout)
       .setDesc(t.settingsAiTimeoutDesc)
       .addText((text) =>
